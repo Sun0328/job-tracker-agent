@@ -1,0 +1,27 @@
+Senior QA Automation Engineer
+Halter — Auckland, New Zealand
+Posted on Seek | www.seek.co.nz/job/78451209
+
+About the role
+Halter is looking for a Senior QA Automation Engineer to join our Platform team in Auckland.
+You will own the automated test strategy for our mobile and web products and work closely with
+developers, product managers and the release team.
+
+What you will do
+- Build and maintain end-to-end test suites in TypeScript using Playwright and Appium
+- Design the mobile automation framework for our Android and iOS apps
+- Work with developers to shift testing left and improve unit and integration coverage
+- Run and monitor test pipelines in GitHub Actions, and triage failures quickly
+- Support release readiness reviews before each production deployment
+
+What we are looking for
+- 5+ years of experience in software testing, with at least 3 in automation
+- Strong TypeScript or JavaScript skills, and confidence reading application code
+- Experience with Playwright, Cypress or similar web automation frameworks
+- Hands-on experience testing native mobile applications with Appium
+- Familiarity with CI/CD pipelines, Docker and AWS
+- Good written communication and a habit of writing clear defect reports
+
+What we offer
+Competitive salary, employee share scheme, flexible hybrid working from our Auckland office,
+and a hardware budget. Applications close 30 September.

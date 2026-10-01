@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
+
+# Secrets: DeepSeek key, Cloudflare API token, R2 key pair.
+.env
+.env.local
+
+# Personal content. Copy the .example files and fill them in locally.
+data/candidate.json
+data/highlights.md
+
+# Local database, downloaded files and run traces.
+data/jobpilot.db
+data/jobpilot.db-shm
+data/jobpilot.db-wal
+data/files/
+data/traces/

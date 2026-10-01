@@ -1,0 +1,11 @@
+# Only used for D1 administration (create / migrate / query) while the backend
+# runs on Node. The app itself talks to D1 through the HTTP API, so no Worker
+# deploy is required.
+name = "jobpilot"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jobpilot"
+database_id = "70f24857-6051-4ca0-9677-c67c21bad283"
+migrations_dir = "db/migrations"
