@@ -66,3 +66,33 @@ export function StatusSelect({
     </Select>
   );
 }
+
+export type StatusFilterValue = JobStatus | "all";
+
+/** Narrow a list to one status. Each option carries how many rows it would leave. */
+export function StatusFilter({
+  value,
+  counts,
+  onChange,
+}: {
+  value: StatusFilterValue;
+  counts: Partial<Record<JobStatus, number>>;
+  onChange: (next: StatusFilterValue) => void;
+}) {
+  const total = Object.values(counts).reduce((sum, count) => sum + (count ?? 0), 0);
+  return (
+    <Select value={value} onValueChange={(next) => onChange(next as StatusFilterValue)}>
+      <SelectTrigger className="button button-ghost button-small filter-trigger" aria-label="Filter by status" chevronSize={13}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All statuses ({total})</SelectItem>
+        {JOB_STATUSES.map((option) => (
+          <SelectItem key={option} value={option} disabled={!counts[option] && option !== value}>
+            {option} ({counts[option] ?? 0})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}

@@ -2,22 +2,11 @@
 
 import { useRef, useState } from "react";
 import { AlertTriangle, ClipboardPaste, FileText, Loader2, Play, RotateCcw } from "lucide-react";
+import { AgentWorkflow, type StepView } from "@/components/agent-workflow";
 import { StatusBadge } from "@/components/charts";
+import { clearCache } from "@/components/dashboard-data";
 import { useToast } from "@/components/toast";
-import type { ExtractedJob, Job } from "@/domain";
-
-interface StepView {
-  iSeq: number;
-  sAgent: string;
-  sLabel: string;
-  sName: string;
-  sStatus: "running" | "ok" | "failed" | "skipped" | "retrying";
-  iDurationMs: number | null;
-  iTokens: number;
-  aTools: Array<{ tool: string; summary: string; ok: boolean }>;
-  oDetail: Record<string, unknown>;
-  streamed: number;
-}
+import type { ExtractedJob, Job, ToolCall } from "@/domain";
 
 interface LetterView {
   text: string;
@@ -38,42 +27,11 @@ interface ResultView {
   runId: string;
 }
 
-/** A one-line summary of what a step actually did, for the row under its label. */
-function stepDetail(step: StepView): string | null {
-  const detail = step.oDetail ?? {};
-  const value = <T,>(key: string) => detail[key] as T | undefined;
-
-  if (step.sName === "identify") return value<string>("sReason") ?? null;
-  if (step.sName === "load-resumes") return (value<string[]>("files") ?? []).join(", ") || null;
-  if (step.sName === "validate") {
-    const issues = value<string[]>("issues") ?? [];
-    if (issues.length) return issues.join("; ");
-    const nulls = value<string[]>("nullFields") ?? [];
-    return nulls.length ? "null: " + nulls.join(", ") : "valid";
-  }
-  if (step.sName === "company-lookup") {
-    const url = value<string>("website_url");
-    return url ? url + " (" + value<string>("source") + ")" : (value<string>("reason") ?? null);
-  }
-  if (step.sName === "check-fields") {
-    const missing = value<string[]>("missing") ?? [];
-    return missing.length ? "missing " + missing.join(", ") : "all required fields present";
-  }
-  if (step.sName === "choose-resume") {
-    const chose = value<string>("chose");
-    return chose ? chose + (value<string>("reason") ? " — " + value<string>("reason") : "") : null;
-  }
-  if (step.sName === "build-pdf") return value<number>("pages") + " page, " + value<number>("words") + " words";
-  if (step.sName === "save-pdf") return value<string>("path") ?? null;
-  if (step.sName === "persist") return value<string>("uuid") ?? null;
-  if (step.sStatus === "skipped") return value<string>("reason") ?? null;
-  return null;
-}
-
 export default function AgentPage() {
   const [jobPost, setJobPost] = useState("");
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<StepView[]>([]);
+  const [runId, setRunId] = useState<string | null>(null);
   const [result, setResult] = useState<ResultView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -90,6 +48,7 @@ export default function AgentPage() {
   function reset() {
     abort.current?.abort();
     setSteps([]);
+    setRunId(null);
     setResult(null);
     setError(null);
     setRunning(false);
@@ -103,6 +62,7 @@ export default function AgentPage() {
 
     setRunning(true);
     setSteps([]);
+    setRunId(null);
     setResult(null);
     setError(null);
 
@@ -163,6 +123,11 @@ export default function AgentPage() {
   function apply(event: Record<string, unknown>) {
     const type = String(event.type ?? "");
 
+    if (type === "run.start") {
+      setRunId(String(event.runId ?? "") || null);
+      return;
+    }
+
     if (type === "step.start") {
       setSteps((current) => [
         ...current,
@@ -172,6 +137,7 @@ export default function AgentPage() {
           sLabel: String(event.sLabel),
           sName: String(event.sName),
           sStatus: "running",
+          iAttempt: Number(event.iAttempt ?? 1),
           iDurationMs: null,
           iTokens: 0,
           aTools: [],
@@ -194,7 +160,7 @@ export default function AgentPage() {
     }
 
     if (type === "step.tool") {
-      const call = event.call as { tool: string; summary: string; ok: boolean };
+      const call = event.call as ToolCall;
       setSteps((current) =>
         current.map((step) =>
           step.iSeq === Number(event.iSeq) ? { ...step, aTools: [...step.aTools, call] } : step,
@@ -210,6 +176,7 @@ export default function AgentPage() {
         sLabel: String(event.sLabel),
         sName: String(event.sName),
         sStatus: event.sStatus as StepView["sStatus"],
+        iAttempt: Number(event.iAttempt ?? 1),
         iDurationMs: Number(event.iDurationMs ?? 0),
         iTokens: Number(event.iTokens ?? 0),
         aTools: (event.aTools as StepView["aTools"]) ?? [],
@@ -231,6 +198,9 @@ export default function AgentPage() {
       const job = (event.job as ExtractedJob) ?? null;
       const saved = (event.saved as Job) ?? null;
       const letter = (event.letter as LetterView) ?? null;
+
+      // A new row: the dashboard's cached list no longer has every application.
+      if (saved) clearCache();
 
       if (outcome === "succeeded") {
         notify.success(
@@ -278,8 +248,8 @@ export default function AgentPage() {
         </div>
       </div>
 
-      <div className="grid grid-2">
-        <div className="stack">
+      <div className="analyse-grid">
+        <div className="analyse-input stack">
           <div className="card">
             <div className="card-head">
               <h2>Job advert</h2>
@@ -350,49 +320,11 @@ export default function AgentPage() {
           ) : null}
         </div>
 
-        <div className="stack">
-          <div className="card">
-            <div className="card-head">
-              <h2>What the agent is doing</h2>
-              {result?.runId ? <span className="card-note">run {result.runId.slice(0, 8)}</span> : null}
-            </div>
-            <div className="card-body">
-              {!steps.length ? (
-                <p className="empty">The steps appear here as the agent works.</p>
-              ) : (
-                <div className="steps">
-                  {steps.map((step) => {
-                    const detail = stepDetail(step);
-                    return (
-                      <div className="step" key={step.iSeq}>
-                        <span className="step-dot" data-status={step.sStatus} />
-                        <div className="step-label">
-                          <span className="step-agent">{step.sAgent}</span>
-                          {step.sLabel}
-                          {step.aTools.map((tool, index) => (
-                            <span className="step-tool" key={tool.tool + index}>
-                              {" "}
-                              {"{" + tool.tool + "}"}
-                            </span>
-                          ))}
-                          {detail ? <div className="step-detail">{detail}</div> : null}
-                          {step.sStatus === "running" && step.streamed > 0 ? (
-                            <div className="step-detail">{step.streamed} characters so far…</div>
-                          ) : null}
-                        </div>
-                        <span className="step-time">
-                          {step.sStatus === "running"
-                            ? "…"
-                            : (step.iDurationMs ?? 0) + "ms" + (step.iTokens ? " · " + step.iTokens + " tok" : "")}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+        <aside className="analyse-flow">
+          <AgentWorkflow steps={steps} runId={result?.runId || runId} />
+        </aside>
 
+        <div className="analyse-results stack">
           {job ? (
             <div className="card">
               <div className="card-head">

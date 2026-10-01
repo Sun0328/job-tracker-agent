@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronRight, Download, Loader2, RefreshCw } from "lucide-react";
-import { StatusSelect, Tile } from "@/components/charts";
+import { StatusFilter, StatusSelect, Tile, type StatusFilterValue } from "@/components/charts";
 import { PipelineSankey } from "@/components/pipeline-sankey";
 import { JobDetail } from "@/components/job-detail";
 import { clearCache, loadDashboard, patchCachedJob, readCache } from "@/components/dashboard-data";
@@ -17,6 +17,18 @@ const RANGES: Array<{ label: string; days: number | null }> = [
   { label: "All time", days: null },
 ];
 
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+/** Local date and time, so two adverts saved the same day can still be told apart. */
+function addedAt(iso: string): { date: string; time: string } {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return { date: iso.slice(0, 10), time: "" };
+  return {
+    date: at.getFullYear() + "-" + pad2(at.getMonth() + 1) + "-" + pad2(at.getDate()),
+    time: pad2(at.getHours()) + ":" + pad2(at.getMinutes()),
+  };
+}
+
 export default function DashboardPage() {
   const [windowDays, setWindowDays] = useState<number | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -24,6 +36,7 @@ export default function DashboardPage() {
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
   const [error, setError] = useState<string | null>(null);
   const notify = useToast();
 
@@ -91,6 +104,18 @@ export default function DashboardPage() {
 
   const totals = metrics?.totals;
   const rates = metrics?.rates;
+
+  // Newest first, whatever order the rows arrived or were patched in.
+  const ordered = useMemo(
+    () => [...jobs].sort((a, b) => Date.parse(b.dtDateTime) - Date.parse(a.dtDateTime)),
+    [jobs],
+  );
+  const visible = statusFilter === "all" ? ordered : ordered.filter((job) => job.sStatus === statusFilter);
+  const statusCounts = useMemo(() => {
+    const counts: Partial<Record<JobStatus, number>> = {};
+    for (const job of jobs) counts[job.sStatus] = (counts[job.sStatus] ?? 0) + 1;
+    return counts;
+  }, [jobs]);
 
   return (
     <div>
@@ -173,10 +198,15 @@ export default function DashboardPage() {
       <div className="card">
         <div className="card-head">
           <h2>Applications</h2>
-          <span className="card-note">{jobs.length} tracked</span>
+          <div className="row">
+            <StatusFilter value={statusFilter} counts={statusCounts} onChange={setStatusFilter} />
+            <span className="card-note">
+              {statusFilter === "all" ? jobs.length + " tracked" : visible.length + " of " + jobs.length + " tracked"}
+            </span>
+          </div>
         </div>
         <div className="table-scroll">
-          {jobs.length ? (
+          {visible.length ? (
             <table className="table">
               <colgroup>
                 <col style={{ width: 38 }} />
@@ -201,7 +231,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((job) => (
+                {visible.map((job) => (
                   <Fragment key={job.uuid}>
                   <tr
                     className="row-toggle"
@@ -229,7 +259,10 @@ export default function DashboardPage() {
                     </td>
                     <td className="secondary" data-label="Location">{job.sLocation ?? "—"}</td>
                     <td className="secondary cell-nowrap" data-label="Source">{job.sSource}</td>
-                    <td className="secondary cell-date" data-label="Added">{job.dtDateTime.slice(0, 10)}</td>
+                    <td className="secondary cell-date" data-label="Added" title={job.dtDateTime}>
+                      {addedAt(job.dtDateTime).date}
+                      <div className="cell-sub">{addedAt(job.dtDateTime).time}</div>
+                    </td>
                     <td data-label="Status" onClick={(event) => event.stopPropagation()}>
                       <StatusSelect
                         status={job.sStatus}
@@ -262,6 +295,8 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+          ) : jobs.length ? (
+            <p className="empty">No applications with the status {statusFilter}.</p>
           ) : (
             <p className="empty">Nothing tracked yet. Analyse an advert and tick &quot;Track it&quot;.</p>
           )}

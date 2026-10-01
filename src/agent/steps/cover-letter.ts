@@ -9,6 +9,7 @@ import {
 } from "@/agent/prompts/cover-letter";
 import { buildPdf, callTool, pdfText, storagePut } from "@/agent/tools";
 import type { LetterDocument } from "@/infra/pdf/render-letter";
+import { modelDetail } from "@/agent/core/model-detail";
 import type { RunTrace } from "@/agent/core/trace";
 import { additionalInformation, contactLines, loadCandidate, loadHighlights } from "@/data/candidate-profile";
 import { NoResumeError, loadResumes, resumeDigest, type Resume } from "@/data/resume-repository";
@@ -124,6 +125,7 @@ export async function runCoverLetterAgent(options: CoverLetterOptions): Promise<
       async (step) => {
         let choice: { sFileName?: string; sReason?: string; aRejected?: Array<{ sFileName: string; sReason: string }> } = {};
         let failure: string | null = null;
+        let answered: Record<string, unknown> = {};
 
         try {
           const result = await chat(
@@ -135,6 +137,7 @@ export async function runCoverLetterAgent(options: CoverLetterOptions): Promise<
             { json: true, temperature: 0, signal: options.signal },
           );
           step.addUsage(result.usage);
+          answered = { ...modelDetail(result), raw: result.content.slice(0, 4000) };
           choice = JSON.parse(result.content);
         } catch (error) {
           failure = error instanceof Error ? error.message : String(error);
@@ -144,6 +147,7 @@ export async function runCoverLetterAgent(options: CoverLetterOptions): Promise<
           ?? loaded.find((resume) => resume.name.toLowerCase() === (choice.sFileName ?? "").toLowerCase());
 
         step.detail({
+          ...answered,
           candidates: loaded.map((resume) => resume.name),
           chose: match?.name ?? loaded[0].name,
           reason: choice.sReason ?? null,
@@ -209,12 +213,12 @@ export async function runCoverLetterAgent(options: CoverLetterOptions): Promise<
 
       const sections = parseSections(result.content);
       step.detail({
-        model: result.model,
+        ...modelDetail(result),
         resume: chosen.name,
         introParagraphs: sections.aIntroduction.length,
         words: countWords(sections.aIntroduction.join(" ") + " " + sections.sWhyGoodFit),
         wordLimit: ONE_PAGE_WORDS,
-        apiMs: result.durationMs,
+        raw: result.content.slice(0, 4000),
       });
       return sections;
     },

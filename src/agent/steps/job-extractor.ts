@@ -3,6 +3,7 @@ import { EXTRACT_JOB_SYSTEM_PROMPT, buildRepairPrompt, buildReviewFeedbackPrompt
 import { extractedJobSchema } from "@/domain/schemas";
 import { callTool, companyWebsite, jsonValidator } from "@/agent/tools";
 import type { CompanyWebsiteOutput } from "@/agent/tools/company-website";
+import { modelDetail } from "@/agent/core/model-detail";
 import type { RunTrace } from "@/agent/core/trace";
 import type { ExtractedJob } from "@/domain";
 
@@ -104,12 +105,10 @@ export async function runJobExtractor(options: ExtractorOptions): Promise<Extrac
       const result = await chat(messages, { json: true, temperature: 0.1, onDelta: step.delta, signal: options.signal });
       step.addUsage(result.usage);
       step.detail({
-        model: result.model,
+        ...modelDetail(result),
         attempt,
         promptChars: messages.reduce((total, message) => total + message.content.length, 0),
         responseChars: result.content.length,
-        finishReason: result.finishReason,
-        apiMs: result.durationMs,
         raw: result.content.slice(0, 4000),
       });
       return result.content;
@@ -163,10 +162,10 @@ export async function runJobExtractor(options: ExtractorOptions): Promise<Extrac
           label: "repaired job",
         });
         step.detail({
+          ...modelDetail(result),
           issuesBefore: validated.issues,
           issuesAfter: report.issues,
           responseChars: result.content.length,
-          apiMs: result.durationMs,
           raw: result.content.slice(0, 4000),
         });
         if (!report.valid) {

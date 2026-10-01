@@ -107,7 +107,8 @@ export function detailLines(sName: string, oDetail: Record<string, unknown>): st
     }
     default: {
       for (const [key, raw] of Object.entries(oDetail)) {
-        if (key === "issues") continue;
+        // Long text belongs in the web inspector and the stored run, not the terminal.
+        if (key === "issues" || key === "raw" || key === "reasoning" || key === "instructions") continue;
         lines.push(key + ": " + truncate(raw));
       }
     }

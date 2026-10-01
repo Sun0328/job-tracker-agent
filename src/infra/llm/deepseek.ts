@@ -23,6 +23,8 @@ export interface ChatResult {
   finishReason: string | null;
   /** deepseek-flash is a reasoning model: it spends completion tokens thinking before it answers. */
   reasoningChars: number;
+  /** That thinking, as text: why it answered the way it did. Empty for a non-reasoning model. */
+  reasoning: string;
 }
 
 /**
@@ -108,7 +110,7 @@ async function readStream(response: Response, onDelta: (text: string) => void) {
   let content = "";
   let usage = emptyUsage();
   let finishReason: string | null = null;
-  let reasoningChars = 0;
+  let reasoning = "";
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -140,13 +142,13 @@ async function readStream(response: Response, onDelta: (text: string) => void) {
         content += piece;
         onDelta(piece);
       }
-      reasoningChars += chunk.choices?.[0]?.delta?.reasoning_content?.length ?? 0;
+      reasoning += chunk.choices?.[0]?.delta?.reasoning_content ?? "";
       if (chunk.choices?.[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason ?? null;
       if (chunk.usage) usage = readUsage(chunk);
     }
   }
 
-  return { content, usage, finishReason, reasoningChars };
+  return { content, usage, finishReason, reasoning };
 }
 
 export async function chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<ChatResult> {
@@ -166,16 +168,16 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
   const response = await post(body, options.signal);
 
   if (streaming) {
-    const { content, usage, finishReason, reasoningChars } = await readStream(response, options.onDelta!);
+    const { content, usage, finishReason, reasoning } = await readStream(response, options.onDelta!);
     if (!content.trim()) {
       throw new Error(
         finishReason === "length"
-          ? "DeepSeek spent the whole token budget reasoning (" + reasoningChars
+          ? "DeepSeek spent the whole token budget reasoning (" + reasoning.length
             + " chars) and returned no answer. Raise maxTokens."
           : "DeepSeek returned an empty response",
       );
     }
-    return { content, usage, model, durationMs: Date.now() - startedMs, finishReason, reasoningChars };
+    return { content, usage, model, durationMs: Date.now() - startedMs, finishReason, reasoningChars: reasoning.length, reasoning };
   }
 
   const payload = (await response.json()) as {
@@ -183,12 +185,12 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
   };
   const choice = payload.choices?.[0];
   const content = choice?.message?.content;
-  const reasoningChars = choice?.message?.reasoning_content?.length ?? 0;
+  const reasoning = choice?.message?.reasoning_content ?? "";
 
   if (!content?.trim()) {
     throw new Error(
       choice?.finish_reason === "length"
-        ? "DeepSeek spent the whole token budget reasoning (" + reasoningChars
+        ? "DeepSeek spent the whole token budget reasoning (" + reasoning.length
           + " chars) and returned no answer. Raise maxTokens."
         : "DeepSeek returned an empty response",
     );
@@ -200,7 +202,8 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
     model,
     durationMs: Date.now() - startedMs,
     finishReason: choice?.finish_reason ?? null,
-    reasoningChars,
+    reasoningChars: reasoning.length,
+    reasoning,
   };
 }
 

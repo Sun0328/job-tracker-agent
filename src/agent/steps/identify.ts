@@ -1,3 +1,4 @@
+import { modelDetail } from "@/agent/core/model-detail";
 import type { RunTrace } from "@/agent/core/trace";
 import type { JobPostVerdict } from "@/agent/input";
 import { CLASSIFY_SYSTEM_PROMPT, buildClassifyPrompt } from "@/agent/prompts/classify";
@@ -39,7 +40,7 @@ export async function runIdentify({ jobPost, trace, signal }: IdentifyOptions): 
         parsed = JSON.parse(result.content) as Partial<JobPostVerdict>;
       } catch {
         // An unreadable verdict must not block a real advert.
-        step.detail({ unparsed: result.content.slice(0, 200), assumed: "job post" });
+        step.detail({ ...modelDetail(result), raw: result.content.slice(0, 4000), assumed: "job post" });
         return null;
       }
 
@@ -48,7 +49,14 @@ export async function runIdentify({ jobPost, trace, signal }: IdentifyOptions): 
         sReason: parsed.sReason ?? "no reason given",
         sLooksLike: parsed.sLooksLike ?? null,
       };
-      step.detail({ ...decided, model: result.model, inputChars: jobPost.length, apiMs: result.durationMs });
+      step.detail({
+        ...decided,
+        ...modelDetail(result),
+        inputChars: jobPost.length,
+        // The rule it judged against, so the verdict can be read next to the question.
+        instructions: CLASSIFY_SYSTEM_PROMPT,
+        raw: result.content.slice(0, 4000),
+      });
       if (!decided.bIsJobPost) step.setStatus("failed");
       return decided;
     },
