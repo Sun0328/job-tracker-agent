@@ -19,3 +19,6 @@ data/jobpilot.db-shm
 data/jobpilot.db-wal
 data/files/
 data/traces/
+
+# Per-machine Claude Code settings. The rest of .claude/ is shared project notes.
+.claude/settings.local.json
