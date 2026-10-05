@@ -1,0 +1,25 @@
+Software Engineer (TypeScript)
+Contoso · Auckland Central · Full time
+Listed on SEEK · Apply now
+
+Contoso makes rostering and payroll software for 1,800 New Zealand hospitality and retail businesses.
+
+The role
+Join our Scheduling squad and build the features managers use every Monday morning: shift planning,
+leave approvals and labour-cost forecasts. You will work across our Next.js front end and Node.js services.
+
+You will
+- Build product features end to end in TypeScript, React and Node.js
+- Design and evolve REST APIs backed by PostgreSQL
+- Write automated tests and keep our CI pipeline green
+- Pair with product and design on discovery
+
+You have
+- 2+ years building web applications professionally
+- Strong TypeScript and React
+- Experience with Node.js and relational databases
+- A habit of writing tests
+
+Nice to have: AWS, GitHub Actions, Playwright.
+
+Hybrid working from our Karangahape Road office. Apply by 20 August.

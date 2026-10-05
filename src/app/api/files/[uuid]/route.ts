@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteFile, fileDownloadUrl, getFileRecord, readFile } from "@/data/file-repository";
+import { demoReadOnly } from "@/server/demo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,8 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function DELETE(request: Request, context: Context) {
+  const blocked = demoReadOnly();
+  if (blocked) return blocked;
   const { uuid } = await context.params;
   const hard = new URL(request.url).searchParams.get("hard") === "1";
   try {

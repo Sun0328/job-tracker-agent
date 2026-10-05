@@ -1,0 +1,22 @@
+Data and AI Engineer
+Trey Research · Wellington · Fixed term, 12 months
+
+Trey Research runs public-policy surveys and research for New Zealand government agencies.
+
+The role
+We are building a research assistant that summarises thousands of open-text survey answers and links each
+finding back to the answers that support it. You will build the data pipelines and the LLM components.
+
+You will
+- Build data pipelines in Python and SQL (dbt is a plus)
+- Use LLM APIs to classify and summarise survey text, with citations back to sources
+- Build evaluation sets with our researchers and measure accuracy
+- Handle sensitive data carefully and document every pipeline
+
+You have
+- 2+ years in data engineering or software engineering
+- Strong Python and SQL
+- Experience with LLM APIs or NLP
+- Clear communication with non-technical researchers
+
+12-month fixed term with a possible extension. Wellington office, flexible hours.

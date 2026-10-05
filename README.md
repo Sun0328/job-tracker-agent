@@ -1,13 +1,51 @@
-# JobPilot — backend + agent
+# JobPilot
 
-Two things, and only two:
+An AI agent for job applications. Paste a job advert and it checks that the text really is an advert,
+extracts a structured record, picks the CV that fits best and writes a one-page cover letter. Every step
+is traced, streamed live and stored, so you can see what the model was asked, what it answered and why.
+A dashboard follows each application through the hiring funnel.
 
-1. **Analyse a job advert** and watch the agent work — every step of the response is streamed and stored, so you can see what the model was asked, what it answered, what failed validation and what it cost.
-2. **A job-hunt dashboard** — funnel, conversion rates, response times, which job boards actually convert, what is sitting without an answer.
+<!-- live-demo: filled in by npm run demo:deploy -->
+**Live demo:** coming soon. Until then, `npm run demo:local` runs the same demo on your machine.
+<!-- /live-demo -->
 
-Storage is **Cloudflare D1** (records) and **Cloudflare R2** (files: your CV, generated letters, advert snapshots). Both on the free plan. There is no frontend yet: this repo is the API and the agent.
+![JobPilot demo: the agent analyses an example advert step by step, writes a cover letter, and the application moves through the dashboard pipeline](docs/media/demo.gif)
 
-## Layout
+## Try it in three clicks
+
+1. Open the live demo (link above) and click **Use the example advert**.
+2. Click **Run the agent** and watch the steps arrive. Click any step to see why the agent decided what it
+   did, the JSON the model sent back and each tool it called.
+3. Click **Download the PDF**, then **Track it on the dashboard** and change the application's status. The
+   pipeline graph moves with it.
+
+Each visitor gets one live AI analysis; a second one is refused with a demo message. Status changes are
+unlimited. Everything resets to the fictional data every night.
+
+## What it demonstrates
+
+- **An agent you can audit.** A main agent supervises three steps: is this a job advert, extract the
+  record, write the letter. Each step records its model, tokens, reasoning, raw answer and tool calls. The
+  page streams them over server-sent events, and every run is archived so it can be replayed.
+- **Model output that is checked, not trusted.** Zod schemas validate every JSON answer, a failed answer
+  gets one repair pass with the exact errors, and missing required fields send the extractor back with the
+  field named. The facts a letter must get right (visa, notice period) are templated, never generated.
+- **A layered architecture, enforced.** `domain → infra → data → agent → services → server / app / cli`.
+  ESLint fails the build on a crossing. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Serverless on free tiers.** Next.js 15 on Cloudflare Workers through OpenNext, with D1 for records
+  and R2 for files. The deploy builds in a clean room and scans the output, so no secret can ride along.
+- **Tested.** 69 Vitest tests run against an in-memory database, and CI runs them on every push.
+
+**Stack:** TypeScript, Next.js 15, React 19, Cloudflare Workers, D1 and R2, DeepSeek (OpenAI-compatible
+API), Zod, pdf-lib, Vitest, GitHub Actions.
+
+![The dashboard: tiles, the pipeline graph and the applications table](docs/media/dashboard.png)
+
+---
+
+## For developers
+
+### Layout
 
 Everything under `src/` sits in a layer, and a layer only imports from the layers below it. The rule is
 enforced by ESLint; the full picture, with diagrams and a "where does a change go" table, is in
@@ -15,178 +53,125 @@ enforced by ESLint; the full picture, with diagrams and a "where does a change g
 
 ```text
 src/domain/      what a job, a run and a dashboard ARE: types, constants, zod schemas. No IO.
-src/infra/       adapters to the outside world: db/ (D1, SQLite), storage/ (R2, local), llm/ (DeepSeek), search/, pdf/, env
-src/data/        repositories and read models: job, run, file, resume, candidate profile, metrics, pipeline
+src/infra/       adapters: db/ (D1 over HTTP or a Worker binding, SQLite), storage/ (R2 or a binding, local), llm/, search/, pdf/
+src/data/        repositories and read models: jobs, runs, files, resumes, candidate profile, demo runs, metrics, pipeline
 src/agent/       the agent: core/ (trace, tool contract), tools/, prompts/, steps/ (identify, extract, letter), main-agent
-src/services/    one function per use case, shared by the API and the CLI: analyseJob, getHealth
-src/server/      HTTP glue for route handlers: read a body or query against a schema, map errors to statuses
+src/services/    one function per use case, shared by the API and the CLI: analyseJob, getHealth, demo
+src/server/      HTTP glue for route handlers: parse and validate, map errors, demo visitors
 src/app/         Next.js: api/ route handlers and the two pages
 src/components/  React components (client code, domain types only)
 src/cli/         terminal presentation: arguments, the live step printer, trace files
-scripts/         the npm-run entry points, thin
+scripts/         the npm-run entry points, thin; scripts/demo/ builds and ships the public demo
+demo/            the demo's fictional inputs, its seed SQL and its bucket files
 db/migrations    SQL schema (applied by npm run db:migrate or wrangler)
-tests/           vitest suite by layer, runs against an in-memory database
-archive/ui-v0    the first UI attempt, parked for reference
+tests/           Vitest suite by layer, runs against an in-memory database
 ```
 
-## Setup
+### Setup
 
 ```bash
 npm install
 cp .env.example .env
 ```
 
-### 1. The agent
+**The agent.** Put a DeepSeek key in `.env`, then confirm the model id is one your key can call with
+`npm run check:model`. With no key the agent still runs: a deterministic local parser, same steps, same
+trace, no network.
 
-Put a DeepSeek key in `.env`, then confirm the model id is one your key can call:
-
-```bash
-npm run check:model
-```
-
-With no key the agent still runs in **demo mode**: a deterministic local parser, same steps, same trace, no network.
-
-### 2. Cloudflare D1 (free plan)
-
-Create an API token at <https://dash.cloudflare.com/profile/api-tokens> → Create Token → Custom token → Permissions: **Account → D1 → Edit**. Put it in `.env` as `CLOUDFLARE_API_TOKEN`, then:
-
-```bash
-npm run d1:setup      # finds your account, creates the "jobpilot" database, fills .env
-npm run db:migrate    # applies db/migrations
-```
-
-`d1:setup` writes `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and `JOB_DB=d1` into `.env` and fills in `wrangler.toml`.
-
+**Cloudflare D1 (free plan).** Create an API token at <https://dash.cloudflare.com/profile/api-tokens> with
+**Account → D1 → Edit**, put it in `.env` as `CLOUDFLARE_API_TOKEN`, then run `npm run d1:setup` (finds your
+account, creates the `jobpilot` database, fills `.env` and `wrangler.real.toml`) and `npm run db:migrate`.
 To work offline, set `JOB_DB=local` and the same SQL runs against `data/jobpilot.db` through `node:sqlite`.
 
-### 3. Cloudflare R2 (free plan)
+**Cloudflare R2 (free plan).** R2 needs its own S3 key pair: dashboard → R2 → API → Manage API tokens →
+Object Read & Write. Put the pair in `.env` as `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, then run
+`npm run r2:setup`. Set `FILE_STORAGE=local` to keep files in `data/files` instead.
 
-R2 needs its own S3 key pair, separate from the account API token: dashboard → R2 → API → **Manage API tokens** → Create API token → Object Read & Write. Put the pair in `.env` as `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, then:
-
-```bash
-npm run r2:setup      # creates the bucket, round-trips a test object, sets FILE_STORAGE=r2
-```
-
-Free tier: 10 GB stored, 1M writes and 10M reads a month, and no charge for downloads. Set `FILE_STORAGE=local` to keep files in `data/files` instead.
-
-## Using it without a frontend
+### Commands
 
 ```bash
-npm run agent:clip                                       # the whole flow on a pasted advert
-npm run agent:save                                       # and track it in the database
-npm run extract:clip                                     # sub-agent 1 alone, no database
-npm run extract:schema                                   # its output contract
-npm run cv:list                                          # resumes the agent can see
-node --import tsx scripts/cover-letter.ts --file ad.txt --out letter.pdf
-node --import tsx scripts/cv-add.ts --file cv.pdf --note "QA automation roles"
-npm run metrics                                          # the dashboard, printed
-npm run db:migrate                                       # apply db/migrations
-npm run dev                                              # serve the API on :3000
+npm run dev                  # the web app on :3000: analyse page / and dashboard /dashboard
+npm run agent:clip           # the whole flow on the advert in your clipboard
+npm run agent:dry            # the same, nothing saved
+npm run extract:clip         # the extractor alone, no database
+npm run cv:list              # the CVs the agent can see
+npm run metrics              # the dashboard numbers in the terminal
+npm run db:migrate           # apply db/migrations
+npx tsc --noEmit && npx eslint . && npx vitest run   # the checks CI runs
 ```
 
-### Passing arguments in PowerShell
+PowerShell swallows a bare `--`, so quote it (`npm run x "--" "--flag"`) or call
+`node --import tsx scripts/<name>.ts …` directly.
 
-PowerShell swallows the bare `--` separator, so `npm run x -- --flag` arrives at npm instead of the
-script. Either quote the separator, or skip npm and call the script directly:
-
-```powershell
-npm run agent:extract "--" "--file" "data\sample-job.txt"   # quoted separator
-node --import tsx scripts/extract.ts --file data/sample-job.txt   # or just run it
-```
-
-Argument-free shortcuts (`npm run extract:clip`, `npm run extract:schema`) sidestep the problem.
-
-## API
+### API
 
 | Method | Route | What it does |
 | --- | --- | --- |
-| POST | `/api/analyse-job` | Analyse an advert, return the result plus the full step trace |
-| POST | `/api/analyse-job/stream` | Same, as server-sent events: `run.start`, `step.start`, `step.delta`, `step.end`, `run.end`, `result` |
-| GET | `/api/jobs` | List applications. Filters: `status`, `source`, `company`, `search`, `activeOnly`, `limit`, `offset` |
-| POST | `/api/jobs` | Track an analysed job |
-| GET | `/api/jobs/:jobId` | One application with its status history |
-| PATCH | `/api/jobs/:jobId` | Change status (with a note), notes, cover letter, source URL, location |
-| DELETE | `/api/jobs/:jobId` | Remove an application and its history |
-| GET | `/api/metrics` | Dashboard numbers. `?windowDays=90` to limit the period |
-| GET | `/api/runs` | Agent run history |
-| GET | `/api/runs/:runId` | One run with every step — the replay of the live stream |
-| GET | `/api/files` | List files. Filters: `jobId`, `kind` (`cv`, `cover-letter`, `job-ad`, `attachment`) |
-| POST | `/api/files` | Upload `multipart/form-data`: `file`, plus optional `kind`, `jobId`, `note` |
-| GET | `/api/files/:fileId` | Metadata, `?download=1` for the bytes, `?url=1` for a signed R2 link |
-| DELETE | `/api/files/:fileId` | Remove the object and its row |
+| POST | `/api/agent` | Analyse an advert; returns the result and the full step trace |
+| POST | `/api/agent/stream` | The same as server-sent events: `run.start`, `step.start`, `step.delta`, `step.tool`, `step.end`, `run.end`, `result` |
+| GET | `/api/jobs` | List applications. Filters: `sStatus`, `sSource`, `sCompany`, `sContractType`, `windowDays`, `search`, `activeOnly`, `limit`, `offset` |
+| POST | `/api/jobs` | Track a job by hand |
+| GET, PATCH, DELETE | `/api/jobs/:id` | One application; change its fields or status; remove it |
+| PUT | `/api/jobs/:id/status` | Change the status, in either direction |
+| GET | `/api/jobs/:id/cover-letter` | The letter PDF (a signed R2 link, or streamed) |
+| GET | `/api/metrics` | Dashboard numbers. `?windowDays=90` limits them to jobs tracked in that period |
+| GET | `/api/runs`, `/api/runs/:id` | Run history, and one run with every step |
+| GET, POST, DELETE | `/api/files`, `/api/files/:id` | The file index and its objects |
+| GET | `/api/demo`, `/api/demo/resume` | Demo mode only: this visitor's status, and the fictional CV |
 | GET | `/api/health` | Database and storage reachable, which drivers, which model |
 
-Request body for both analyse routes:
+Request body for both analyse routes: `{ "jobPost": "the full advert text", "save": true, "coverLetter": true }`.
 
-```json
-{ "jobPost": "the full advert text", "save": false, "coverLetter": true }
-```
-
-## How the agents work
-
-**Main agent** supervises. It decides whether the input is a job advert at all, runs the two
-sub-agents, checks what they produce, and retries with the specific problem rather than looping
-blindly. Three attempts maximum.
+### How the agent works
 
 ```text
 [1] (main)         Is this a job advertisement?      stops here if it is not
-[2] (extractor)    Read the advert, return JSON       sub-agent 1
+[2] (extractor)    Read the advert, return JSON
 [3] (extractor)    Check the JSON against the schema  {json_validator}
 [4] (extractor)    Repair                             skipped when the first answer validates
 [5] (extractor)    Find the company's own website     {company_website}
-[6] (main)         Check the extracted record         required fields must not be null
-[7] (cover-letter) Read the resumes in storage        sub-agent 2, {pdf_text} per CV
-[8] (cover-letter) Pick the resume that fits          with a comparative reason
-[9] (cover-letter) Write the letter                   two sections; the third is templated
-[10](cover-letter) Render a one-page PDF              {build_pdf}
-[11](cover-letter) Save to storage                    {storage_put}
-[12](main)         Check the letter before it goes out
-[13](main)         Save the application
+[6] (main)         Check the extracted record         required fields must not be empty
+[7] (main)         Save the application
+[8] (cover-letter) Read the resumes in storage        {pdf_text} per CV
+[9] (cover-letter) Pick the resume that fits          with a comparative reason
+[10](cover-letter) Write the letter                   two sections; the third is templated
+[11](cover-letter) Render a one-page PDF              {build_pdf}
+[12](cover-letter) Save to storage                    {storage_put}
+[13](main)         Check the letter before it goes out
 ```
 
-**Step 1** is a model decision, not a keyword list. DeepSeek says whether the text is a job advertisement,
-why, and what it looks like instead when it is not (company profile, news article, CV, email). A "no" stops
-the run with that reason. An unreadable answer, or no API key, lets the advert through.
+Step 1 is a model decision, not a keyword list: a "no" stops the run with the model's reason. Step 6
+requires `sCompany`, `sJobTitle`, `sJobSummary`, `sJobRequirement`, `sContractType` and `sSource`; an
+empty one sends the advert back to the extractor naming that field, up to three attempts.
 
-**Step 6** is the final check: `sCompany`, `sJobTitle`, `sJobSummary`, `sJobRequirement`,
-`sContractType` and `sSource` must all carry a value. A null sends the advert back to sub-agent 1
-naming the field that was empty. `sLocation` and `sTechStack` are reported as thin, not fatal.
+### Cover letters
 
-**Tools**: `json_validator` (schema plus missing/null fields), `company_website` (the model
-answers, a fetch verifies), `pdf_text` (reads your CVs), `build_pdf` (renders the letter),
-`storage_put` (R2 plus the database row), `db_sql` (tracker CRUD, SELECT only for raw queries).
+The letter step reads every CV under `resume/` in the bucket, picks the one that fits the advert, and
+writes three sections: an introduction, "Why I Am a Good Fit" (each sentence names a requirement and the
+evidence for it), and "Additional Information", which is assembled from the candidate profile and never
+written by the model. The profile is `profile/candidate.json` and `profile/highlights.md` in storage when
+present, otherwise `data/candidate.json` and `data/highlights.md` on your machine. The PDF is stored as
+`Company-Name/Company-Name_Role.pdf`, and that key is what `Job.sCoverLetterPath` holds.
 
-## Cover letters
+### Dashboard numbers
 
-Sub-agent 2 reads every resume in the bucket under `resume/`, picks the one that fits the advert,
-and writes to your template: a right-aligned header, `Dear Recruitment Team,` and three sections.
+The funnel uses each application's furthest stage (`sDeepestStatus`), so a job rejected after a final
+interview still counts as having reached it. The date range limits the table, the tiles and the graph to
+jobs tracked in that period, so all three always count the same rows.
 
-- **Introduction** — your background, then why this role. A sentence about the company only when
-  there is a verified fact about it.
-- **Why I Am a Good Fit** — three or four sentences. Each one names something the advert asks for
-  and the specific thing you have done that proves it. It is not a resume summary.
-- **Additional Information** — assembled from `data/candidate.json`, never written by the model, so
-  the visa date, residence sentence and notice period are identical every time.
+### The public demo
 
-Two files control it: `data/candidate.json` (name, contact, visa, notice, sign-off) and
-`data/highlights.md` (background and achievements the letter may draw on beyond the resume).
+The live demo is this code with `DEMO_MODE=1` on Cloudflare Workers, bound only to its own database
+(`jobpilot-demo`) and bucket (`jobpilot-demo-files`). Your own data is never involved.
 
-The PDF goes to `Company-Name/Company-Name_Role.pdf` in R2, and that key is what
-`Job.sCoverLetterPath` stores.
+```bash
+npm run demo:local     # the demo on http://localhost:3200, from the committed seed
+npm run demo:data      # rebuild demo/seed.sql and demo/bucket/ with real agent runs on the fictional adverts
+npm run demo:reset     # load the seed and files into the demo D1 and R2 (also runs nightly in GitHub Actions)
+npm run demo:deploy    # clean-room build, secret scan, deploy with the DeepSeek key as a Worker secret
+```
 
-## Dashboard numbers
-
-The funnel reads `status_history`, not the current status, so a job rejected after a final interview still counts as an interview. `npm run metrics` prints:
-
-- totals: tracked, applied, active, interviewing, offers, rejected, waiting on a reply
-- rates: response, interview, offer, rejection, average and median days to first response
-- funnel with stage-to-stage conversion
-- applications and responses per week
-- conversion by source (SEEK vs LinkedIn vs direct)
-- tech that keeps appearing in the adverts you chase
-- applications sitting without an answer, oldest first
-- agent cost: runs, failures, repair rate, tokens
-
-## Before using it for real applications
-
-Replace `data/cv.md` and `data/cover-letter-template.md` with your own content. The prompts forbid inventing experience, so anything not in `cv.md` will not appear in a letter.
+The deploy token needs **Account → Workers Scripts → Edit** (put it in `.env` as `CLOUDFLARE_DEPLOY_TOKEN`
+if you keep it separate). The nightly reset needs `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as
+repository secrets. Never run `opennextjs-cloudflare build` or `wrangler dev` in the project folder: both
+read `.env`, and the build embeds what it reads.

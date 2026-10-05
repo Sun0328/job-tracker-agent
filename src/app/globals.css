@@ -1253,3 +1253,69 @@ a { color: inherit; }
     gap: 3px;
   }
 }
+
+/* ------------------------------------------------------------ demo mode */
+.demo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--warning) 14%, var(--background));
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+
+.demo-banner a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font-weight: 500;
+}
+
+.demo-intro {
+  border-color: color-mix(in srgb, var(--series-1) 45%, var(--border));
+}
+
+.demo-lead {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.demo-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.demo-actions,
+.letter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo-limit {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--critical);
+}
+
+.button[data-attention="true"] {
+  animation: attention 1.6s ease-in-out infinite;
+}
+
+@keyframes attention {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--series-1) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--series-1) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button[data-attention="true"] { animation: none; outline: 2px solid var(--series-1); }
+}

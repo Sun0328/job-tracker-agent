@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listFiles, saveFile } from "@/data/file-repository";
 import { FILE_KINDS, type FileKind } from "@/domain";
+import { demoReadOnly } from "@/server/demo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
 
 /** multipart/form-data: file, plus optional sKind, sJobUUID and sNote. */
 export async function POST(request: Request) {
+  const blocked = demoReadOnly();
+  if (blocked) return blocked;
   let form: FormData;
   try {
     form = await request.formData();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteRun, getRun } from "@/data/run-repository";
+import { demoReadOnly } from "@/server/demo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function DELETE(_request: Request, context: Context) {
+  const blocked = demoReadOnly();
+  if (blocked) return blocked;
   const { uuid } = await context.params;
   try {
     const removed = await deleteRun(uuid);

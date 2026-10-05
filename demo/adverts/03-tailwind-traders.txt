@@ -1,0 +1,22 @@
+Full Stack Developer
+Tailwind Traders · Auckland (hybrid) · Full time
+Found on LinkedIn · Easy apply
+
+Tailwind Traders is an online hardware retailer shipping to every corner of Aotearoa from our Penrose
+warehouse. Our in-house team of 12 builds the storefront, the warehouse app and everything in between.
+
+Responsibilities
+- Build storefront and checkout features in Next.js and React
+- Maintain our order and inventory APIs in Node.js
+- Integrate with courier and payment providers
+- Improve site performance and accessibility
+
+Requirements
+- 3+ years of full-stack JavaScript or TypeScript
+- Next.js or similar React framework in production
+- PostgreSQL or MySQL
+- Experience integrating third-party APIs
+
+Bonus points for Shopify, Stripe or GraphQL experience.
+
+Permanent role, salary $105k to $125k, staff discount on everything we sell.

@@ -1,0 +1,19 @@
+Machine Learning Engineer
+Litware · Remote within New Zealand · Full time
+
+Litware builds pasture-growth forecasting for dairy farms, using satellite imagery and on-farm sensors.
+
+What you will do
+- Train, evaluate and ship forecasting models in Python
+- Build data pipelines with PyTorch, pandas and SQL on AWS
+- Put models into production and monitor drift
+- Work with agronomists to turn forecasts into decisions farmers trust
+
+What you bring
+- 3+ years building ML systems in production
+- Strong Python and PyTorch
+- Experience with time-series or geospatial data
+- AWS (S3, SageMaker or Lambda)
+- A postgraduate degree in a quantitative field is an advantage
+
+Fully remote with a team week in Hamilton each quarter. Salary $130k to $150k.

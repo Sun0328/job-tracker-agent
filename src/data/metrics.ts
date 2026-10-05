@@ -1,6 +1,7 @@
 import { getDb } from "@/infra/db";
 import type { Row } from "@/infra/db";
 import { getPipeline } from "@/data/pipeline";
+import { normaliseWindow, trackedWithin } from "@/data/window";
 import { JOB_STATUSES, type DashboardMetrics, type FunnelStage, type JobStatus } from "@/domain";
 
 const CLOSED_LIST = "('Reject', 'Offer')";
@@ -34,10 +35,8 @@ function median(values: number[]): number | null {
 }
 
 function buildScript(windowDays: number | null): string {
-  const since = windowDays
-    ? " AND datetime(dtDateTime) >= datetime('now', '-" + windowDays + " days')"
-    : "";
-  const live = "bDelete = 0 AND bError = 0" + since;
+  const within = trackedWithin(windowDays);
+  const live = "bDelete = 0 AND bError = 0" + (within ? " AND " + within : "");
 
   /** Rank of the furthest stage reached, straight off the Job row. */
   const depth = `CASE sDeepestStatus
@@ -140,7 +139,7 @@ function buildScript(windowDays: number | null): string {
        SUM(CASE WHEN bError = 1 THEN 1 ELSE 0 END) AS errored,
        AVG(iDurationMs) AS avg_duration_ms,
        SUM(iTotalTokens) AS total_tokens
-     FROM AgentRun WHERE 1 = 1${windowDays ? " AND datetime(dtDateTime) >= datetime('now', '-" + windowDays + " days')" : ""}`,
+     FROM AgentRun WHERE 1 = 1${within ? " AND " + within : ""}`,
   ].join(";" + String.fromCharCode(10));
 }
 
@@ -174,9 +173,7 @@ export interface MetricsOptions {
 }
 
 export async function getDashboardMetrics(options: MetricsOptions = {}): Promise<DashboardMetrics> {
-  const windowDays = options.windowDays == null
-    ? null
-    : Math.min(Math.max(Math.round(Number(options.windowDays) || 0), 1), 3650);
+  const windowDays = normaliseWindow(options.windowDays);
 
   const db = await getDb();
   const [results, pipeline] = await Promise.all([

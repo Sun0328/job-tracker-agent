@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { getFileStorage } from "@/infra/storage";
 
 export interface Candidate {
   fullName: string;
@@ -28,23 +29,44 @@ const DEFAULTS: Candidate = {
   signOff: "Kind regards",
 };
 
-/** data/candidate.json — the facts every cover letter has to state. */
-export async function loadCandidate(): Promise<Candidate> {
+/** Where the profile lives in storage. The deployed demo keeps its fictional candidate here. */
+export const PROFILE_KEYS = { candidate: "profile/candidate.json", highlights: "profile/highlights.md" } as const;
+
+async function readStored(key: string): Promise<string | null> {
   try {
-    const raw = await readFile(path.join(process.cwd(), "data", "candidate.json"), "utf8");
+    const object = await getFileStorage().get(key);
+    return object ? new TextDecoder().decode(object.body) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readLocal(fileName: string): Promise<string | null> {
+  try {
+    return await readFile(path.join(process.cwd(), "data", fileName), "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The facts every cover letter has to state. Storage first (profile/candidate.json),
+ * then data/candidate.json on this machine. A Worker has no project folder, so the
+ * deployed demo reads its fictional candidate from its own bucket.
+ */
+export async function loadCandidate(): Promise<Candidate> {
+  const raw = (await readStored(PROFILE_KEYS.candidate)) ?? (await readLocal("candidate.json"));
+  if (!raw) return { ...DEFAULTS };
+  try {
     return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Candidate>) };
   } catch {
     return { ...DEFAULTS };
   }
 }
 
-/** data/highlights.md — standing facts the letter may draw on, beyond the resume. */
+/** Standing facts the letter may draw on, beyond the resume. Same order: storage, then data/highlights.md. */
 export async function loadHighlights(): Promise<string> {
-  try {
-    return (await readFile(path.join(process.cwd(), "data", "highlights.md"), "utf8")).trim();
-  } catch {
-    return "";
-  }
+  return ((await readStored(PROFILE_KEYS.highlights)) ?? (await readLocal("highlights.md")) ?? "").trim();
 }
 
 /** The two right-aligned lines under the name. */

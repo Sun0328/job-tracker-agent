@@ -3,6 +3,62 @@
 What was found the hard way. Newest first. Each entry: what it looked like, the cause, and the fix
 or procedure.
 
+## Building the Cloudflare Worker leaked .env and broke `next dev` (2026-10-05)
+
+- **Looked like:** a local `wrangler dev` of the Worker reported `"driver":"d1"` with 9 jobs: it was
+  reading the REAL database. The built `.open-next/cloudflare/next-env.mjs` and
+  `server-functions/default/.env` held the real Cloudflare token and DeepSeek key.
+- **Cause:** `@opennextjs/cloudflare` reads `.env`, `.env.local` and `.env.production*` from the app
+  folder at build time and embeds the values; Next copies `.env` into the server bundle; wrangler itself
+  loads `.env` for `dev`, `whoami` and friends.
+- **Fix:** `npm run demo:deploy` builds in `data/demo/build` (tracked files only, its own `npm ci`), then
+  scans `.open-next` for every `.env` value of 16+ characters except public ones (`*_BASE_URL`,
+  `*_MODEL`), and refuses to deploy on a match. Nothing was deployed from the leaky build.
+- **Second casualty:** one clean-room attempt linked `node_modules` as a junction, and the adapter's
+  build patched the shared `node_modules/next/.../module.compiled.js` to `"production" === 'development'`.
+  Afterwards `next dev` served every page as 500 (`ENOENT .next/required-server-files.json`) while API
+  routes worked. Tell: the compiled `.next/server/app/page.js` references `app-page.runtime.prod.js`.
+  `npm ci` restored it. The clean room now installs its own packages.
+
+## Demo deploy refused: "No access to the specified resource" (2026-10-05)
+
+- The token in `.env` has D1 and R2 edit but no Workers permission, so `wrangler deploy` fails on
+  `/workers/scripts/jobpilot-demo/...`. Fix: add **Account > Workers Scripts > Edit** to that token, or
+  put a token from the "Edit Cloudflare Workers" template in `.env` as `CLOUDFLARE_DEPLOY_TOKEN`.
+- `wrangler whoami` reports the `.env` token even with the variable unset in the shell, because wrangler
+  reads `.env` itself. There is no OAuth login on this machine.
+
+## Windows: arguments with "; " break through a shell (2026-10-05)
+
+- `spawnSync("npx", [...], { shell: true })` split `--content-type=text/markdown; charset=utf-8` and
+  wrangler printed its usage. The demo scripts run `node_modules/wrangler/bin/wrangler.js` with
+  `process.execPath` and no shell.
+
+## Changing a status did not move the pipeline graph (fixed 2026-10-05)
+
+- **Looked like:** pick a new status in the Applications table, the toast says it saved, the graph
+  stays the same. Reproduced on the isolated server: with "All time" the graph did move; with
+  "7 days" it did not.
+- **Cause 1 (the main one):** the date range filtered the tiles and the graph by when a job was first
+  tracked (`dtDateTime`), but the table always listed every job. Changing an older job changed a
+  row the graph never contained. With the real data, 6 of 8 jobs date from 2026-09-15, so the 7- and
+  14-day views hid most of them from the graph only.
+- **Cause 2:** `data/pipeline.ts` drew any job whose furthest stage was Offer as an Offer, so
+  Offer → Reject never showed.
+- **Cause 3:** the "waiting" ribbons (Not applied yet, No reply yet, Waiting) were coloured with
+  `var(--ink-muted)`, which is not defined, so the browser drew no stroke. Moving a job into one of
+  those states looked like nothing happened. Labels used the undefined `var(--ink-secondary)` too.
+- **Fix:** one window rule in `data/window.ts` (`trackedWithin`), used by `listJobs({ windowDays })`,
+  `metrics` and `pipeline`. `GET /api/jobs` takes `windowDays`, and the dashboard caches the list per
+  range, so the table, the tiles and the graph always count the same rows. The table says which range
+  it shows and offers "Show all time". Offer then Reject draws Offer → Rejected. Waiting ribbons use
+  `var(--axis)`, labels `var(--foreground)`. Loads are ticketed so an older response cannot land last.
+- **Guard:** `tests/data/pipeline.test.ts` checks the list, the tiles and the graph agree in every
+  range, that a status change moves the graph, and the Offer → Reject case. All three fail on the old
+  code.
+- **Lesson:** grep for `var(--` names before using one. `globals.css` defines `--foreground`,
+  `--muted-foreground`, `--axis`, `--series-*`, `--good`, `--warning`, `--critical`, nothing `--ink-*`.
+
 ## A newly analysed job is missing from the dashboard (fixed 2026-10-01)
 
 - **Looked like:** the Applications table showed 6 rows while the database had 7. The missing one

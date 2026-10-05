@@ -1,0 +1,36 @@
+name: Reset the public demo
+
+# Every night, put the demo's fictional data back: visitors' status changes and
+# analysed jobs are replaced by demo/seed.sql. Who has used their one live AI
+# run (the DemoRun table) is kept.
+#
+# Needs two repository secrets: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+# (a token with D1 edit permission). Without them the job skips itself.
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 13:00 UTC, about 2am in New Zealand
+  workflow_dispatch:
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: Skip without Cloudflare secrets
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "CLOUDFLARE_API_TOKEN is not set; nothing to reset."
+      - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - uses: actions/setup-node@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: env.CLOUDFLARE_API_TOKEN != ''
+      - name: Reload the demo data
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npm run demo:reset -- --data

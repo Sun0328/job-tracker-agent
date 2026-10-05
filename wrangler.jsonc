@@ -1,0 +1,26 @@
+// The PUBLIC demo: jobpilot-demo on Cloudflare Workers (free plan), fictional data only.
+// It has its own D1 database and R2 bucket. Your real data lives in the database named
+// in wrangler.real.toml, which this Worker is never bound to.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jobpilot-demo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "observability": { "enabled": true },
+  "vars": {
+    "DEMO_MODE": "1",
+    "JOB_DB": "d1-binding",
+    "FILE_STORAGE": "r2-binding",
+    "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+    "DEEPSEEK_MODEL": "deepseek-flash",
+    // One live analysis per visitor, and at most this many across all visitors per day.
+    "DEMO_DAILY_RUN_CAP": "40"
+  },
+  // Secrets, set with `wrangler secret put`: DEEPSEEK_API_KEY, DEMO_SECRET.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "jobpilot-demo", "database_id": "9f21585f-993b-465f-8f81-0626f48dc4a3", "migrations_dir": "db/migrations" }
+  ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "jobpilot-demo-files" }]
+}

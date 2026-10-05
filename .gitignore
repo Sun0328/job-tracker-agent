@@ -22,3 +22,11 @@ data/traces/
 
 # Per-machine Claude Code settings. The rest of .claude/ is shared project notes.
 .claude/settings.local.json
+
+# Cloudflare build output and local Worker state
+.open-next/
+.wrangler/
+.dev.vars
+
+# Demo build workspace (generated, rebuilt by npm run demo:build)
+data/demo/

@@ -4,6 +4,7 @@ import { createJob, listJobs } from "@/data/job-repository";
 import { attachJobToRun } from "@/data/run-repository";
 import { CONTRACT_TYPES, JOB_STATUSES } from "@/domain";
 import { createJobSchema } from "@/domain/schemas";
+import { demoReadOnly } from "@/server/demo";
 import { failure, readJsonBody, readQuery } from "@/server/http";
 
 export const runtime = "nodejs";
@@ -14,6 +15,7 @@ const filterSchema = z.object({
   sSource: z.string().min(1).optional(),
   sCompany: z.string().min(1).optional(),
   sContractType: z.enum(CONTRACT_TYPES).optional(),
+  windowDays: z.coerce.number().int().min(1).max(3650).optional(),
   search: z.string().min(1).optional(),
   activeOnly: z.coerce.boolean().optional(),
   includeErrors: z.coerce.boolean().optional(),
@@ -22,7 +24,7 @@ const filterSchema = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
-/** List applications. Filters: status, source, company, contract type, search, activeOnly. */
+/** List applications. Filters: status, source, company, contract type, windowDays (tracked in the last N days), search, activeOnly. */
 export async function GET(request: Request) {
   const parsed = readQuery(request, filterSchema);
   if (!parsed.ok) return parsed.response;
@@ -37,6 +39,8 @@ export async function GET(request: Request) {
 
 /** Track an analysed job by hand. */
 export async function POST(request: Request) {
+  const blocked = demoReadOnly();
+  if (blocked) return blocked;
   const parsed = await readJsonBody(request, createJobSchema, "job");
   if (!parsed.ok) return parsed.response;
 

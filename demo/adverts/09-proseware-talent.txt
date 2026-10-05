@@ -1,0 +1,22 @@
+AI Developer (LLM Applications) | Auckland | $130k to $150k
+Proseware Talent · Recruitment agency
+
+Proseware Talent is recruiting on behalf of our client, a fast-growing Auckland SaaS company in the
+property-management space, for an AI Developer to join their product team.
+
+Our client is adding AI features across their platform: automated maintenance-request triage, lease
+document Q&A and a natural-language reporting assistant.
+
+What you will be doing
+- Building LLM features in TypeScript and Node.js
+- Designing tool-calling agents and structured outputs
+- Building retrieval over customer documents
+- Evaluating and monitoring model quality in production
+
+What our client is looking for
+- 3+ years of software development, with recent hands-on LLM work
+- TypeScript and Node.js
+- Experience with retrieval (RAG) and vector databases
+- Comfortable working directly with customers
+
+Hybrid, 3 days in the office. Apply now or call our team for a confidential chat.

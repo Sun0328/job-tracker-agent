@@ -97,11 +97,11 @@ async function main() {
   await setEnvValue("CLOUDFLARE_D1_DATABASE_ID", database.uuid);
   await setEnvValue("JOB_DB", "d1");
 
-  const tomlPath = path.join(process.cwd(), "wrangler.toml");
+  const tomlPath = path.join(process.cwd(), "wrangler.real.toml");
   const toml = await readFile(tomlPath, "utf8").catch(() => "");
   if (toml.includes("REPLACE_AFTER_D1_CREATE")) {
     await writeFile(tomlPath, toml.replace("REPLACE_AFTER_D1_CREATE", database.uuid), "utf8");
-    console.log("wrangler.toml: database_id filled in");
+    console.log("wrangler.real.toml: database_id filled in");
   }
 
   console.log("\n.env updated: JOB_DB=d1, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_D1_DATABASE_ID");

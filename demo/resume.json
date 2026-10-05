@@ -1,0 +1,73 @@
+{
+  "name": "Alex Rivera",
+  "contact": ["Auckland, New Zealand", "021 555 0142  |  alex.rivera@inspectcopilot.com"],
+  "footer": "Fictional person, employers and university, made for the JobPilot demo.",
+  "variants": [
+    {
+      "fileName": "Alex_Rivera_CV_AI_Engineer.pdf",
+      "note": "AI engineering and LLM applications",
+      "headline": "Software Engineer, AI and LLM applications",
+      "summary": "Software engineer with four years of TypeScript and Python, the last two shipping LLM features to production. I turn messy business text into structured, checked data, and I make model behaviour visible with tracing and evaluation sets so teams can trust it.",
+      "skills": [
+        "Languages: TypeScript, JavaScript, Python, SQL",
+        "AI: LLM APIs (OpenAI, Anthropic, DeepSeek), tool calling, structured outputs, JSON Schema and Zod, retrieval (pgvector), evaluation sets, tracing",
+        "Web: Node.js, Next.js, React, REST",
+        "Data and cloud: PostgreSQL, SQLite, AWS Lambda and S3, Cloudflare Workers, GitHub Actions"
+      ],
+      "emphasis": "ai"
+    },
+    {
+      "fileName": "Alex_Rivera_CV_Full_Stack.pdf",
+      "note": "full-stack and frontend web development",
+      "headline": "Full Stack Software Engineer",
+      "summary": "Full-stack engineer with four years building React, Next.js and Node.js products end to end. I care about fast, accessible interfaces, typed APIs and tests that catch regressions before customers do.",
+      "skills": [
+        "Frontend: React, Next.js, TypeScript, accessible HTML and CSS, design systems",
+        "Backend: Node.js, REST APIs, PostgreSQL, Python",
+        "Testing: Vitest, Playwright, contract tests",
+        "Cloud: AWS Lambda and S3, Cloudflare Workers, GitHub Actions"
+      ],
+      "emphasis": "web"
+    }
+  ],
+  "experience": [
+    {
+      "role": "Software Engineer",
+      "company": "Humongous Insurance",
+      "place": "Auckland",
+      "dates": "Feb 2023 to present",
+      "ai": [
+        "Built a claims-intake assistant: an LLM reads customer emails and PDFs, its output is validated against JSON schemas, and over 2,000 claims a month are routed without manual triage.",
+        "Built a 300-claim evaluation set and step-by-step tracing, which cut misrouted claims from 9% to 3%.",
+        "Moved four Node.js services to AWS Lambda with GitHub Actions deployments.",
+        "Mentor two graduate developers."
+      ],
+      "web": [
+        "Rebuilt the customer claims portal in Next.js and React, cutting page load from 4.1 to 1.3 seconds.",
+        "Designed typed REST APIs in Node.js and PostgreSQL for the portal and two partner integrations.",
+        "Moved four Node.js services to AWS Lambda with GitHub Actions deployments.",
+        "Mentor two graduate developers."
+      ]
+    },
+    {
+      "role": "Junior Full Stack Developer",
+      "company": "Margie's Travel",
+      "place": "Wellington",
+      "dates": "Jan 2021 to Jan 2023",
+      "ai": [
+        "Built booking and itinerary features in React, Next.js and PostgreSQL.",
+        "Wrote Python tooling that reconciles supplier invoices against bookings, saving the finance team a day a month.",
+        "Added Vitest and Playwright tests to a codebase that had none."
+      ],
+      "web": [
+        "Built booking and itinerary features in React, Next.js and PostgreSQL used by 30,000 customers a month.",
+        "Added Vitest and Playwright tests to a codebase that had none, catching release regressions before customers did.",
+        "Made the booking flow pass WCAG 2.1 AA."
+      ]
+    }
+  ],
+  "projects": [
+    "Recipe planner (side project): retrieval over 5,000 recipes with Next.js, PostgreSQL and pgvector, with an LLM that explains each suggestion."
+  ],
+  "education": "Bachelor of Computer Science, Te Awa University, 2020"
+}

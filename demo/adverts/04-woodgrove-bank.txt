@@ -1,0 +1,20 @@
+Software Engineer, Platform
+Woodgrove Bank · Auckland CBD · Permanent
+
+Woodgrove Bank is a New Zealand-owned bank serving 300,000 customers. Our Platform team builds the
+services every product team depends on: identity, payments, notifications and observability.
+
+The role
+- Build and run internal platform services in C# and .NET on Azure
+- Improve deployment pipelines and developer tooling
+- Own reliability: monitoring, alerting and incident reviews
+- Work with security on safe-by-default patterns
+
+About you
+- 3+ years in software engineering, ideally on platform or backend services
+- C# and .NET (or Java and willingness to learn .NET)
+- Azure or another major cloud
+- Infrastructure as code (Terraform or Bicep)
+- Comfortable on an on-call roster
+
+Hybrid working, 4 days in the office. Applications close 30 August.

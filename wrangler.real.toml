@@ -1,0 +1,11 @@
+# PRIVATE: admin config for your real JobPilot database (create / migrate / query).
+# Never deployed. The public demo Worker is wrangler.jsonc and has its own
+# database and bucket, so a deploy can never touch this one.
+name = "jobpilot"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jobpilot"
+database_id = "70f24857-6051-4ca0-9677-c67c21bad283"
+migrations_dir = "db/migrations"

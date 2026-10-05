@@ -1,0 +1,22 @@
+Integration Developer
+Wide World Importers · Auckland (Mount Wellington) · Permanent, full time
+Listed on Trade Me Jobs
+
+Wide World Importers distributes homeware from 60 suppliers to retailers across New Zealand. We connect
+our warehouse, our ERP and our customers' ordering systems.
+
+Key responsibilities
+- Build and maintain integrations in Node.js and TypeScript
+- Design REST and event-driven interfaces with suppliers and retailers
+- Run serverless workloads on AWS Lambda, SQS and S3
+- Monitor integrations and fix failures quickly
+- Document every interface clearly
+
+Skills and experience
+- 3+ years of backend or integration development
+- Node.js and TypeScript
+- AWS serverless services
+- Experience parsing messy partner data: CSV, EDI, XML or email
+- SQL
+
+Salary $110k to $125k plus a performance bonus.

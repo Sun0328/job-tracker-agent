@@ -8,7 +8,7 @@ export interface StoredObject {
 }
 
 export interface FileStorage {
-  readonly driver: "r2" | "local-files";
+  readonly driver: "r2" | "r2-binding" | "local-files";
   put(key: string, body: Uint8Array, contentType: string): Promise<StoredObject>;
   get(key: string): Promise<{ body: Uint8Array; contentType: string } | null>;
   head(key: string): Promise<StoredObject | null>;

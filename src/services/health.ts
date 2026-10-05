@@ -1,12 +1,12 @@
-import { getDb, selectedDriver } from "@/infra/db";
+import { getDb, selectedDriver, type DbDriver } from "@/infra/db";
 import { deepSeekConfigured, deepSeekModel } from "@/infra/llm/deepseek";
-import { getFileStorage, selectedFileDriver } from "@/infra/storage";
+import { getFileStorage, selectedFileDriver, type FileDriver } from "@/infra/storage";
 
 export interface Health {
   ok: boolean;
-  driver: "d1" | "local";
+  driver: DbDriver;
   database: { ok: boolean; jobs?: number; runs?: number; error?: string };
-  files: { driver: "r2" | "local"; ok: boolean; error?: string };
+  files: { driver: FileDriver; ok: boolean; error?: string };
   agent: { mode: "deepseek" | "demo"; model: string | null };
 }
 

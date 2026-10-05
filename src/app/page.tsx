@@ -1,10 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, ClipboardPaste, FileText, Loader2, Play, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ClipboardPaste, Download, FileText, LayoutDashboard, Loader2, Play, RotateCcw } from "lucide-react";
 import { AgentWorkflow, type StepView } from "@/components/agent-workflow";
 import { StatusBadge } from "@/components/charts";
 import { clearCache } from "@/components/dashboard-data";
+import { DemoIntro, useDemo } from "@/components/demo";
+import { DEMO_EXAMPLE_ADVERT } from "@/components/demo-example";
 import { useToast } from "@/components/toast";
 import type { ExtractedJob, Job, ToolCall } from "@/domain";
 
@@ -36,6 +39,13 @@ export default function AgentPage() {
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const notify = useToast();
+  const { status: demo, refresh: refreshDemo } = useDemo();
+  const exampleLoaded = jobPost === DEMO_EXAMPLE_ADVERT;
+
+  function loadExample() {
+    setJobPost(DEMO_EXAMPLE_ADVERT);
+    setError(null);
+  }
 
   async function paste() {
     try {
@@ -55,6 +65,11 @@ export default function AgentPage() {
   }
 
   async function run() {
+    // The demo allows one live AI run per visitor. Say so straight away, without a request.
+    if (demo?.demo && demo.runsLeft <= 0) {
+      notify.error("Demo environment", demo.message ?? "Each visitor gets one AI analysis. Not allowed.");
+      return;
+    }
     if (jobPost.trim().length < 80) {
       setError("Paste the whole advert — this looks too short.");
       return;
@@ -79,6 +94,10 @@ export default function AgentPage() {
 
       if (!response.ok || !response.body) {
         const payload = await response.json().catch(() => null);
+        if (payload?.demo) {
+          notify.error("Demo environment", payload.error);
+          return;
+        }
         throw new Error(payload?.error ?? "The agent could not be reached (" + response.status + ")");
       }
 
@@ -117,6 +136,7 @@ export default function AgentPage() {
       }
     } finally {
       setRunning(false);
+      if (demo?.demo) void refreshDemo();
     }
   }
 
@@ -250,6 +270,8 @@ export default function AgentPage() {
 
       <div className="analyse-grid">
         <div className="analyse-input stack">
+          {demo?.demo ? <DemoIntro status={demo} onUseExample={loadExample} exampleLoaded={exampleLoaded} /> : null}
+
           <div className="card">
             <div className="card-head">
               <h2>Job advert</h2>
@@ -279,7 +301,13 @@ export default function AgentPage() {
                     <RotateCcw size={13} />
                     Clear
                   </button>
-                  <button className="button" onClick={run} disabled={running} type="button">
+                  <button
+                    className="button"
+                    onClick={run}
+                    disabled={running}
+                    type="button"
+                    data-attention={demo?.demo && exampleLoaded && !steps.length && !running ? "true" : undefined}
+                  >
                     {running ? <Loader2 size={14} className="spinner" /> : <Play size={14} />}
                     {running ? "Running" : "Run the agent"}
                   </button>
@@ -416,6 +444,18 @@ export default function AgentPage() {
                   <p className="card-note" style={{ margin: 0 }}>
                     Saved to storage as <code>{result.letter.sCoverLetterPath}</code>
                   </p>
+                ) : null}
+                {result.saved && result.letter.sCoverLetterPath ? (
+                  <div className="row letter-actions">
+                    <a className="button" href={"/api/jobs/" + result.saved.uuid + "/cover-letter"}>
+                      <Download size={14} />
+                      Download the PDF
+                    </a>
+                    <Link className="button button-ghost" href={"/dashboard?job=" + result.saved.uuid}>
+                      <LayoutDashboard size={14} />
+                      Track it on the dashboard
+                    </Link>
+                  </div>
                 ) : null}
               </div>
             </div>

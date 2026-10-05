@@ -46,7 +46,7 @@ const zones = [
 ];
 
 const eslintConfig = [
-  { ignores: [".next/**", "next-env.d.ts", "archive/**"] },
+  { ignores: [".next/**", "next-env.d.ts", "archive/**", "data/demo/**", ".open-next/**", ".wrangler/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     files: ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],

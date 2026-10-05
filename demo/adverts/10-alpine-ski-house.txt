@@ -1,0 +1,20 @@
+Backend Engineer
+Alpine Ski House · Queenstown or remote (NZ) · Full time
+
+Alpine Ski House runs lift-pass, lesson and rental bookings for four ski areas in the Southern Alps.
+Winter traffic is spiky, so reliability matters more than anything.
+
+What you will do
+- Build booking and payment services in TypeScript on Node.js
+- Scale our APIs for 50x traffic on the first snow day
+- Run services on Cloudflare Workers and AWS
+- Improve observability: logs, traces and alerts
+
+What you need
+- 3+ years of backend development
+- TypeScript and Node.js
+- PostgreSQL and caching
+- Experience with serverless or edge platforms
+- Calm under pressure
+
+Season pass for you and a friend. Relocation support to Queenstown available.

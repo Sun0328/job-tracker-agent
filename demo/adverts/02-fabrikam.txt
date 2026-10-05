@@ -1,0 +1,22 @@
+AI Engineer
+Fabrikam · Wellington (hybrid) · Permanent, full time
+
+Fabrikam builds document-processing software for New Zealand councils and utilities. Our platform reads
+building consents, invoices and correspondence, and routes them to the right team.
+
+What you will do
+- Build LLM-powered extraction pipelines that turn unstructured documents into validated, structured data
+- Design prompts, tool calls and JSON schemas, and measure them with evaluation sets
+- Add tracing so every model decision can be explained to a customer
+- Ship production services in Python and TypeScript on AWS
+
+What we are looking for
+- 3+ years of software engineering experience
+- Production experience with LLM APIs and structured outputs
+- Strong Python; TypeScript is a plus
+- Experience with evaluation and monitoring of ML or LLM systems
+- SQL and PostgreSQL
+
+Nice to have: retrieval-augmented generation, pgvector, AWS Lambda.
+
+We offer flexible hours, a $3,000 learning budget and an extra week of leave.

@@ -1,0 +1,15 @@
+{
+  "_comment": "Where each fictional application ended up. 'tracked' is days ago; each step is [status, days ago]. The order is oldest first.",
+  "applications": [
+    { "file": "01-contoso.txt", "tracked": 58, "steps": [["Applied", 57], ["HR screen", 50], ["Tech interview", 44], ["Reject", 40]] },
+    { "file": "02-fabrikam.txt", "tracked": 52, "steps": [["Applied", 51], ["HR screen", 45], ["Tech interview", 39], ["Behavior interview", 33], ["Final", 27], ["Offer", 22]] },
+    { "file": "03-tailwind-traders.txt", "tracked": 45, "steps": [["Applied", 44], ["Reject", 30]] },
+    { "file": "04-woodgrove-bank.txt", "tracked": 38, "steps": [["Applied", 37], ["HR screen", 31], ["Reject", 28]] },
+    { "file": "05-litware.txt", "tracked": 30, "steps": [["Applied", 29]] },
+    { "file": "06-fourth-coffee.txt", "tracked": 24, "steps": [["Applied", 23], ["HR screen", 18], ["Tech interview", 12]] },
+    { "file": "07-wide-world-importers.txt", "tracked": 17, "steps": [["Applied", 16], ["HR screen", 10]] },
+    { "file": "08-trey-research.txt", "tracked": 9, "steps": [["Applied", 8]] },
+    { "file": "09-proseware-talent.txt", "tracked": 5, "steps": [] },
+    { "file": "10-alpine-ski-house.txt", "tracked": 2, "steps": [] }
+  ]
+}

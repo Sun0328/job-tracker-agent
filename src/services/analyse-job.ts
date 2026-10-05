@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createRunTrace } from "@/agent/core/create-trace";
 import type { RunEventHandler } from "@/agent/core/trace";
 import { runMainAgent, type MainAgentOutcome, type MainAgentResult } from "@/agent/main-agent";
+import { DemoBlockedError, claimRun, demoMode, releaseRun, type DemoVisitor } from "@/services/demo";
 
 export type { RunEvent, RunEventHandler } from "@/agent/core/trace";
 export type { MainAgentResult } from "@/agent/main-agent";
@@ -20,25 +21,63 @@ export const analyseRequestSchema = z.object({
 
 export type AnalyseRequest = z.infer<typeof analyseRequestSchema>;
 
+export interface PreparedAnalysis {
+  request: AnalyseRequest;
+  /** The demo run this analysis took, to give back if it fails. Null outside demo mode. */
+  demoClaim: number | null;
+}
+
+/**
+ * Everything that must be decided before the run starts, so a refusal can be a
+ * plain JSON response rather than an event in a stream. In demo mode this takes
+ * the visitor's one run (or throws DemoBlockedError) and fixes the options: the
+ * job is saved and gets a letter, and the company lookup is skipped, because the
+ * demo companies are fictional and their names could belong to real websites.
+ */
+export async function prepareAnalysis(request: AnalyseRequest, visitor: DemoVisitor | null): Promise<PreparedAnalysis> {
+  if (!demoMode()) return { request, demoClaim: null };
+  if (!visitor) throw new DemoBlockedError("read-only");
+
+  const demoClaim = await claimRun(visitor);
+  return {
+    request: { ...request, save: true, coverLetter: true, lookupWebsite: false, maxAttempts: Math.min(request.maxAttempts, 2) },
+    demoClaim,
+  };
+}
+
 export interface AnalyseJobOptions {
   request: AnalyseRequest;
+  /** From prepareAnalysis, when the run took a demo slot. */
+  demoClaim?: number | null;
   /** Live step events, for the SSE stream or the terminal. */
   onEvent?: RunEventHandler;
   signal?: AbortSignal;
 }
 
 /** The use case behind POST /api/agent, its stream twin and `npm run agent`. */
-export async function analyseJob({ request, onEvent, signal }: AnalyseJobOptions): Promise<MainAgentResult> {
+export async function analyseJob({ request, demoClaim = null, onEvent, signal }: AnalyseJobOptions): Promise<MainAgentResult> {
   const trace = createRunTrace(request.jobPost, { onEvent });
-  return runMainAgent({
-    jobPost: request.jobPost,
-    trace,
-    coverLetter: request.coverLetter,
-    save: request.save,
-    lookupWebsite: request.lookupWebsite,
-    maxAttempts: request.maxAttempts,
-    signal,
-  });
+  // A run that broke (the model or the network failed) gives the visitor's demo slot back.
+  const giveBack = async () => {
+    if (demoClaim != null) await releaseRun(demoClaim).catch(() => undefined);
+  };
+
+  try {
+    const result = await runMainAgent({
+      jobPost: request.jobPost,
+      trace,
+      coverLetter: request.coverLetter,
+      save: request.save,
+      lookupWebsite: request.lookupWebsite,
+      maxAttempts: request.maxAttempts,
+      signal,
+    });
+    if (result.outcome === "failed") await giveBack();
+    return result;
+  } catch (error) {
+    await giveBack();
+    throw error;
+  }
 }
 
 /** The wire shape of a result: the letter without its bytes, the run without its input text. */

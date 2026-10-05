@@ -119,3 +119,24 @@ Storage keys: CVs under `resume/`, letters at `Company-Name/Company-Name_Role.pd
 `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ACCOUNT_ID`, `LOCAL_FILES_PATH`. Real environment
 variables override `.env`, which is how the isolated test server works. With no DeepSeek key the
 agent runs in demo mode (a local parser, same steps).
+
+## The public demo (added 2026-10-05)
+
+Same code, `DEMO_MODE=1`, on Cloudflare Workers via `@opennextjs/cloudflare`. Full write-up with a
+diagram: `docs/ARCHITECTURE.md` → "The public demo". The essentials:
+
+- Drivers: `JOB_DB=d1-binding` and `FILE_STORAGE=r2-binding` (`infra/db/d1-binding.ts`,
+  `infra/storage/r2-binding.ts`, bindings from `infra/cloudflare.ts`). No API tokens in the Worker. No
+  signed URLs, so the cover-letter route streams the PDF.
+- Visitors: `server/demo.ts` (cookie `jp_demo` + salted SHA-256 of the IP, salt = secret `DEMO_SECRET`).
+  Limits in `services/demo.ts`: 1 run per visitor ever, 3 per IP per UTC day, `DEMO_DAILY_RUN_CAP`
+  (40) per day. Table `DemoRun` (migration 0006); the nightly reset leaves it alone.
+- `prepareAnalysis` takes the run before the SSE stream opens (so a refusal is a JSON 429 the page
+  toasts), forces `save`, `coverLetter`, no website lookup. `analyseJob` gives the run back if it fails.
+- Allowed in the demo: one analysis, letter download, status changes. Refused (403 `demo-read-only`):
+  POST /api/jobs, PATCH fields, DELETE jobs/files/runs, POST /api/files.
+- The candidate profile is read from storage first (`profile/candidate.json`, `profile/highlights.md`),
+  then `data/`. CV text has an optional cache at `resume-text/<key>.json`, used when its `size` matches,
+  because a PDF parse would blow the free plan's 10 ms CPU per request.
+- Demo content lives in `demo/` (profile, `resume.json` → two PDF variants, ten adverts + `plan.json`).
+  `npm run demo:data` turns it into `demo/seed.sql` (dates relative to `'now'`) and `demo/bucket/`.

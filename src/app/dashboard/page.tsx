@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronRight, Download, Loader2, RefreshCw } from "lucide-react";
 import { StatusFilter, StatusSelect, Tile, type StatusFilterValue } from "@/components/charts";
 import { PipelineSankey } from "@/components/pipeline-sankey";
@@ -39,8 +39,12 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("all");
   const [error, setError] = useState<string | null>(null);
   const notify = useToast();
+  /** Only the newest load may write to the page. Two quick status changes, or a range change mid-load, would otherwise let an older response land last. */
+  const latestLoad = useRef(0);
 
   const load = useCallback(async (force = false) => {
+    const ticket = ++latestLoad.current;
+
     // Already in hand: show it without touching the network.
     if (!force) {
       const cached = readCache(windowDays);
@@ -56,19 +60,27 @@ export default function DashboardPage() {
     setError(null);
     try {
       const snapshot = await loadDashboard(windowDays, force);
+      if (ticket !== latestLoad.current) return;
       setMetrics(snapshot.metrics);
       setJobs(snapshot.jobs);
       setFetchedAt(snapshot.fetchedAt);
     } catch (caught) {
+      if (ticket !== latestLoad.current) return;
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
-      setLoading(false);
+      if (ticket === latestLoad.current) setLoading(false);
     }
   }, [windowDays]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Arriving from the analyse page with ?job=<uuid>: open that application's row.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("job");
+    if (wanted) setOpen(wanted);
+  }, []);
 
   async function changeStatus(uuid: string, sStatus: JobStatus) {
     const previous = jobs.find((job) => job.uuid === uuid);
@@ -104,6 +116,8 @@ export default function DashboardPage() {
 
   const totals = metrics?.totals;
   const rates = metrics?.rates;
+  const rangeLabel = RANGES.find((range) => range.days === windowDays)?.label ?? windowDays + " days";
+  const inRange = windowDays == null ? "" : " in the last " + rangeLabel;
 
   // Newest first, whatever order the rows arrived or were patched in.
   const ordered = useMemo(
@@ -182,7 +196,7 @@ export default function DashboardPage() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
           <h2>Where applications go</h2>
-          <span className="card-note">every tracked job, and where it ended up</span>
+          <span className="card-note">every job tracked{inRange || " so far"}, and where it ended up</span>
         </div>
         <div className="card-body">
           {metrics ? (
@@ -201,8 +215,13 @@ export default function DashboardPage() {
           <div className="row">
             <StatusFilter value={statusFilter} counts={statusCounts} onChange={setStatusFilter} />
             <span className="card-note">
-              {statusFilter === "all" ? jobs.length + " tracked" : visible.length + " of " + jobs.length + " tracked"}
+              {(statusFilter === "all" ? jobs.length : visible.length + " of " + jobs.length) + " tracked" + inRange}
             </span>
+            {windowDays != null ? (
+              <button className="button button-ghost button-small" type="button" onClick={() => setWindowDays(null)}>
+                Show all time
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="table-scroll">
@@ -296,7 +315,9 @@ export default function DashboardPage() {
               </tbody>
             </table>
           ) : jobs.length ? (
-            <p className="empty">No applications with the status {statusFilter}.</p>
+            <p className="empty">No applications with the status {statusFilter}{inRange}.</p>
+          ) : windowDays != null ? (
+            <p className="empty">Nothing tracked{inRange}. Older applications are under &quot;All time&quot;.</p>
           ) : (
             <p className="empty">Nothing tracked yet. Analyse an advert and tick &quot;Track it&quot;.</p>
           )}

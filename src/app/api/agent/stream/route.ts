@@ -1,5 +1,13 @@
-import { readJsonBody } from "@/server/http";
-import { analyseJob, analyseRequestSchema, serialiseAnalysis, type RunEvent } from "@/services/analyse-job";
+import { demoErrorResponse, identifyVisitor, withCookie } from "@/server/demo";
+import { failure, readJsonBody } from "@/server/http";
+import {
+  analyseJob,
+  analyseRequestSchema,
+  prepareAnalysis,
+  serialiseAnalysis,
+  type PreparedAnalysis,
+  type RunEvent,
+} from "@/services/analyse-job";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +20,15 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   const parsed = await readJsonBody(request, analyseRequestSchema);
   if (!parsed.ok) return parsed.response;
+  const { visitor, setCookie } = identifyVisitor(request);
+
+  // Decided before the stream opens, so a demo refusal is a plain JSON 429 the page can toast.
+  let prepared: PreparedAnalysis;
+  try {
+    prepared = await prepareAnalysis(parsed.data, visitor);
+  } catch (error) {
+    return withCookie(demoErrorResponse(error) ?? failure(error, "The agent could not start"), setCookie);
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -27,7 +44,7 @@ export async function POST(request: Request) {
       };
 
       try {
-        const result = await analyseJob({ request: parsed.data, onEvent: send, signal: request.signal });
+        const result = await analyseJob({ ...prepared, onEvent: send, signal: request.signal });
         send({ type: "result", ...serialiseAnalysis(result) });
       } catch (error) {
         send({ type: "run.error", message: error instanceof Error ? error.message : String(error) });
@@ -42,12 +59,15 @@ export async function POST(request: Request) {
     },
   });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  return withCookie(
+    new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    }),
+    setCookie,
+  );
 }

@@ -40,7 +40,7 @@ function nodeColour(kind: PipelineNode["kind"]): string {
 function ribbonColour(kind: PipelineNode["kind"]): string {
   if (kind === "offer") return "var(--good)";
   if (kind === "rejected") return "var(--critical)";
-  if (kind === "waiting") return "var(--ink-muted)";
+  if (kind === "waiting") return "var(--axis)";
   return "var(--series-1)";
 }
 
@@ -173,7 +173,7 @@ export function PipelineSankey({ pipeline }: { pipeline: Pipeline }) {
                 y={node.y + node.height / 2}
                 dominantBaseline="middle"
                 fontSize={FONT}
-                fill="var(--ink-secondary)"
+                fill="var(--foreground)"
                 style={{ fontWeight: 500 }}
               >
                 {node.name} {node.value}

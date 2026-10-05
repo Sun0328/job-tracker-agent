@@ -26,6 +26,15 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
 - **Do not test the web UI against the real database.** The analyse page always posts `save: true`.
   Use the isolated test server in debugging.md.
 - **Never `next build` while a dev server runs.** They share `.next/`.
+- **Never run `opennextjs-cloudflare build`, `wrangler dev` or `wrangler deploy` in the project folder.**
+  The Cloudflare adapter embeds every `.env` value in the Worker, Next copies `.env` into the bundle,
+  and wrangler loads `.env` on its own. Use `npm run demo:deploy` (clean room in `data/demo/build`,
+  then a scan for every `.env` value). An in-place build on 2026-10-05 also patched
+  `node_modules/next` to always pick its production runtime, which broke `next dev` (`npm ci` fixed it).
+- **The public demo is DEMO_MODE=1 with its own D1 (`jobpilot-demo`) and R2 (`jobpilot-demo-files`).**
+  `wrangler.jsonc` is the demo; `wrangler.real.toml` is the private admin config for the real database.
+  Demo data is fictional (Microsoft sample-company names, candidate Alex Rivera). Never put anything real
+  in `demo/`.
 - **No secrets in tracked files.** `.env`, `data/candidate.json`, `data/highlights.md`,
   `data/jobpilot.db`, `data/files/` and `data/traces/` are gitignored. Keep them that way.
 - **Git:** `origin` is `https://github.com/Sun0328/job-tracker-agent.git`, branch `master`. The repo
@@ -37,7 +46,7 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
 ```bash
 npx tsc --noEmit
 npx eslint .
-npx vitest run        # 54 tests as of 2026-10-01
+npx vitest run        # 69 tests as of 2026-10-05
 ```
 
 For UI changes, also see it working in the browser (isolated test server, debugging.md).
@@ -53,6 +62,10 @@ npm run cv:list             # CVs the agent can see (R2 resume/)
 npm run metrics             # dashboard numbers in the terminal
 npm run db:migrate          # apply db/migrations to the selected database
 npm run check:model         # which DeepSeek model ids the key can call
+npm run demo:local          # the public demo on :3200, from demo/seed.sql (local throwaway DB)
+npm run demo:data           # rebuild demo/seed.sql + demo/bucket/ (real DeepSeek runs, local DB)
+npm run demo:reset          # load the seed and files into the demo D1 and R2
+npm run demo:deploy         # clean-room build, secret scan, deploy (needs a Workers-edit token)
 ```
 
 PowerShell swallows a bare `--`: quote it (`npm run x "--" "--flag"`) or call

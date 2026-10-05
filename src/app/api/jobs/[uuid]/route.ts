@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { deleteJob, getJob, restoreJob, updateJobFields, updateStatus } from "@/data/job-repository";
 import { CONTRACT_TYPES, JOB_STATUSES } from "@/domain";
+import { demoReadOnly } from "@/server/demo";
 import { failure, jsonError, readJsonBody } from "@/server/http";
 
 export const runtime = "nodejs";
@@ -40,6 +41,11 @@ export async function PATCH(request: Request, context: Context) {
   if (!parsed.ok) return parsed.response;
 
   const { sStatus, note, restore, ...fields } = parsed.data;
+  // The demo lets visitors move an application through the pipeline, and nothing else.
+  if (restore || Object.values(fields).some((value) => value !== undefined)) {
+    const blocked = demoReadOnly();
+    if (blocked) return blocked;
+  }
   try {
     if (restore) await restoreJob(uuid);
     if (Object.values(fields).some((value) => value !== undefined)) await updateJobFields(uuid, fields);
@@ -52,6 +58,8 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(request: Request, context: Context) {
+  const blocked = demoReadOnly();
+  if (blocked) return blocked;
   const { uuid } = await context.params;
   const hard = new URL(request.url).searchParams.get("hard") === "1";
   try {

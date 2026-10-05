@@ -1,0 +1,22 @@
+Frontend Engineer
+Fourth Coffee · Christchurch · Full time
+Posted on the Fourth Coffee careers page
+
+Fourth Coffee roasts and delivers coffee subscriptions to 40,000 homes and offices across New Zealand.
+Our product team builds the subscription app and the roastery's planning tools.
+
+You will
+- Build our customer app in React and TypeScript
+- Own our design system and component library
+- Make the app fast and accessible on every device
+- Work closely with design and with our two backend engineers
+
+You have
+- 2+ years of professional frontend development
+- Strong React and TypeScript
+- Care for accessibility (WCAG) and performance
+- Experience with component testing (Vitest, Testing Library or Playwright)
+
+Nice to have: Next.js, design tokens, analytics.
+
+Free coffee, obviously. Hybrid from our Sydenham roastery.

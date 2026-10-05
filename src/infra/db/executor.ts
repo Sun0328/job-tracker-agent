@@ -6,7 +6,7 @@ export type SqlValue = string | number | null;
 export type Row = Record<string, unknown>;
 
 export interface SqlExecutor {
-  readonly driver: "d1-http" | "local-sqlite";
+  readonly driver: "d1-http" | "d1-binding" | "local-sqlite";
   all<T extends Row = Row>(sql: string, params?: SqlValue[]): Promise<T[]>;
   first<T extends Row = Row>(sql: string, params?: SqlValue[]): Promise<T | null>;
   run(sql: string, params?: SqlValue[]): Promise<{ changes: number }>;

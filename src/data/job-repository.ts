@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { trackedWithin } from "@/data/window";
 import { getDb } from "@/infra/db";
 import type { Row } from "@/infra/db";
 import {
@@ -89,6 +90,8 @@ export interface JobFilter {
   sSource?: string;
   sCompany?: string;
   sContractType?: ContractType;
+  /** Only jobs first tracked in the last N days: the same rule as the dashboard numbers and graph. */
+  windowDays?: number | null;
   search?: string;
   /** Still in play: not Reject, not Offer. */
   activeOnly?: boolean;
@@ -128,6 +131,8 @@ export async function listJobs(filter: JobFilter = {}): Promise<Job[]> {
     where.push("sContractType = ?");
     params.push(filter.sContractType);
   }
+  const within = trackedWithin(filter.windowDays);
+  if (within) where.push(within);
   if (filter.search) {
     where.push("(sCompany LIKE ? OR sJobTitle LIKE ? OR sJobSummary LIKE ?)");
     const like = "%" + filter.search + "%";

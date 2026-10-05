@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/app/globals.css";
+import { DemoBanner } from "@/components/demo";
 import { Nav } from "@/components/nav";
 import { ToastProvider } from "@/components/toast";
 
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ToastProvider>
           <Nav />
+          <DemoBanner />
           <main className="shell">{children}</main>
         </ToastProvider>
       </body>

@@ -79,6 +79,41 @@ export async function listResumes(): Promise<ResumeSource[]> {
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Text already pulled out of a PDF CV, kept beside it in storage as
+ * resume-text/<key>.json. Reading a PDF is the most CPU-hungry thing the agent
+ * does, and the Workers free plan allows 10 ms of CPU per request, so the demo
+ * ships this file and never parses its CV at runtime. A cache whose size does
+ * not match the PDF is ignored, so replacing a CV cannot serve stale text.
+ */
+export const RESUME_TEXT_PREFIX = "resume-text/";
+
+export interface ResumeTextCache {
+  /** Byte size of the PDF the text came from. */
+  size: number;
+  text: string;
+  pages: number;
+}
+
+export function resumeTextKey(resumeKey: string): string {
+  return RESUME_TEXT_PREFIX + resumeKey + ".json";
+}
+
+export async function writeResumeTextCache(resumeKey: string, cache: ResumeTextCache): Promise<void> {
+  await getFileStorage().put(resumeTextKey(resumeKey), new TextEncoder().encode(JSON.stringify(cache)), "application/json");
+}
+
+async function readResumeTextCache(resumeKey: string, size: number): Promise<ResumeTextCache | null> {
+  try {
+    const object = await getFileStorage().get(resumeTextKey(resumeKey));
+    if (!object) return null;
+    const cache = JSON.parse(new TextDecoder().decode(object.body)) as ResumeTextCache;
+    return cache.size === size && typeof cache.text === "string" && cache.text.trim() ? cache : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Load every resume and pull its text out. A file that cannot be read is skipped, not fatal. */
 export async function loadResumes(): Promise<{ resumes: Resume[]; skipped: Array<{ name: string; reason: string }> }> {
   const storage = getFileStorage();
@@ -88,6 +123,14 @@ export async function loadResumes(): Promise<{ resumes: Resume[]; skipped: Array
 
   for (const source of sources) {
     try {
+      if (/\.pdf$/i.test(source.key)) {
+        const cached = await readResumeTextCache(source.key, source.size);
+        if (cached) {
+          resumes.push({ ...source, text: cached.text, chars: cached.text.length, pages: cached.pages });
+          continue;
+        }
+      }
+
       const object = await storage.get(source.key);
       if (!object) throw new Error("object missing from storage");
 
