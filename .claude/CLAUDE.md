@@ -24,8 +24,10 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
 - **Any browser-side write that changes the job list calls `clearCache()`**
   (`src/components/dashboard-data.ts`), or the dashboard shows a stale list.
 - **Do not test the web UI against the real database.** The analyse page always posts `save: true`.
-  Use the isolated test server in debugging.md.
-- **Never `next build` while a dev server runs.** They share `.next/`.
+  Use `npm run e2e` (its own seeded copy of the demo, checked by `e2e/global-setup.ts` before any test)
+  or the isolated test server in debugging.md.
+- **Never `next build` while a dev server runs.** They share `.next/`. The e2e server builds into
+  `.next-e2e/` (`NEXT_DIST_DIR`), so `npm run e2e` is safe beside a dev server on another port.
 - **Never run `opennextjs-cloudflare build`, `wrangler dev` or `wrangler deploy` in the project folder.**
   The Cloudflare adapter embeds every `.env` value in the Worker, Next copies `.env` into the bundle,
   and wrangler loads `.env` on its own. Use `npm run demo:deploy` (clean room in `data/demo/build`,
@@ -33,7 +35,9 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
   `node_modules/next` to always pick its production runtime, which broke `next dev` (`npm ci` fixed it).
 - **The public demo is DEMO_MODE=1 with its own D1 (`jobpilot-demo`) and R2 (`jobpilot-demo-files`).**
   Live at https://jobpilot-demo.fionasundev.workers.dev. Cloudflare Workers Builds deploys every push to
-  `master` (build `npx opennextjs-cloudflare build`, deploy `npx wrangler deploy`), so pushing IS deploying.
+  `master` (build `npm run cf:build`, which runs typecheck + lint + unit tests before
+  `opennextjs-cloudflare build`; deploy `npx wrangler deploy`), so pushing IS deploying. `/api/health`
+  reports the deployed commit as `version`; `deploy-verify.yml` waits for it, then runs the smoke suite live.
   Runtime secrets `DEEPSEEK_API_KEY` and `DEMO_SECRET` are set on the Worker in the dashboard.
   `wrangler.jsonc` is the demo; `wrangler.real.toml` is the private admin config for the real database.
   Demo data is fictional (Microsoft sample-company names, candidate Alex Rivera). Never put anything real
@@ -47,12 +51,13 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
 ## Done means
 
 ```bash
-npx tsc --noEmit
-npx eslint .
-npx vitest run        # 69 tests as of 2026-10-05
+npm run verify        # typecheck + lint + vitest (88 tests as of 2026-10-05)
+npm run e2e           # Playwright: production build, seeded demo, offline agent (9 tests)
 ```
 
-For UI changes, also see it working in the browser (isolated test server, debugging.md).
+For UI changes, also add or extend a spec under `e2e/` (smoke = read-only, safe against the live
+demo; journey = writes, local only). CI (`.github/workflows/ci.yml`) also builds the Worker, checks its
+size budget, scans for secrets and audits production dependencies; see docs/ARCHITECTURE.md.
 
 ## Commands
 
@@ -69,6 +74,10 @@ npm run demo:local          # the public demo on :3200, from demo/seed.sql (loca
 npm run demo:data           # rebuild demo/seed.sql + demo/bucket/ (real DeepSeek runs, local DB)
 npm run demo:reset          # load the seed and files into the demo D1 and R2
 npm run demo:deploy         # clean-room build, secret scan, deploy (needs a Workers-edit token)
+npm run test:coverage       # vitest with the coverage floor CI enforces (vitest.config.ts)
+npm run e2e                 # both browser suites on a fresh local build (:3300)
+npm run e2e:serve -- --dev  # the e2e server on next dev, for writing specs (then E2E_REUSE=1 npm run e2e)
+BASE_URL=https://jobpilot-demo.fionasundev.workers.dev npm run e2e:smoke   # read-only, against live
 ```
 
 PowerShell swallows a bare `--`: quote it (`npm run x "--" "--flag"`) or call

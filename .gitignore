@@ -30,3 +30,10 @@ data/traces/
 
 # Demo build workspace (generated, rebuilt by npm run demo:build)
 data/demo/
+
+# Test output: the e2e build and its seeded database, reports, coverage
+.next-e2e/
+data/e2e/
+playwright-report/
+test-results/
+coverage/

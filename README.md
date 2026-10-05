@@ -1,5 +1,9 @@
 # JobPilot
 
+[![CI](https://github.com/Sun0328/job-tracker-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Sun0328/job-tracker-agent/actions/workflows/ci.yml)
+[![Deploy verification](https://github.com/Sun0328/job-tracker-agent/actions/workflows/deploy-verify.yml/badge.svg)](https://github.com/Sun0328/job-tracker-agent/actions/workflows/deploy-verify.yml)
+[![CodeQL](https://github.com/Sun0328/job-tracker-agent/actions/workflows/codeql.yml/badge.svg)](https://github.com/Sun0328/job-tracker-agent/actions/workflows/codeql.yml)
+
 An AI agent for job applications. Paste a job advert and it checks that the text really is an advert,
 extracts a structured record, picks the CV that fits best and writes a one-page cover letter. Every step
 is traced, streamed live and stored, so you can see what the model was asked, what it answered and why.
@@ -34,7 +38,11 @@ unlimited. Everything resets to the fictional data every night.
   ESLint fails the build on a crossing. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Serverless on free tiers.** Next.js 15 on Cloudflare Workers through OpenNext, with D1 for records
   and R2 for files. The deploy builds in a clean room and scans the output, so no secret can ride along.
-- **Tested.** 69 Vitest tests run against an in-memory database, and CI runs them on every push.
+- **Tested at every stage, like a product.** 88 unit and integration tests, including the whole agent
+  run offline and a check that no real personal data is in the demo; Playwright browser tests on a
+  production build; a Worker size budget, secret scanning, a dependency audit and CodeQL on every push.
+  A deploy only happens when the tests pass, and is then checked on the live site. See
+  [Quality gates](#quality-gates).
 
 **Stack:** TypeScript, Next.js 15, React 19, Cloudflare Workers, D1 and R2, DeepSeek (OpenAI-compatible
 API), Zod, pdf-lib, Vitest, GitHub Actions.
@@ -97,7 +105,8 @@ npm run extract:clip         # the extractor alone, no database
 npm run cv:list              # the CVs the agent can see
 npm run metrics              # the dashboard numbers in the terminal
 npm run db:migrate           # apply db/migrations
-npx tsc --noEmit && npx eslint . && npx vitest run   # the checks CI runs
+npm run verify               # typecheck, lint, unit tests: what must pass before a deploy
+npm run e2e                  # browser tests on a production build of the demo (offline, port 3300)
 ```
 
 PowerShell swallows a bare `--`, so quote it (`npm run x "--" "--flag"`) or call
@@ -172,11 +181,32 @@ npm run demo:deploy    # manual deploy: clean-room build, secret scan, DeepSeek 
 ```
 
 **Deploys are automatic.** Cloudflare Workers Builds is connected to this repository: every push to
-`master` builds with `npx opennextjs-cloudflare build` and deploys with `npx wrangler deploy` into the
-Worker `jobpilot-demo` (the name must match `wrangler.jsonc`). Builds clone from GitHub, where there is no
+`master` builds with `npm run cf:build` (typecheck, lint and unit tests first, then
+`opennextjs-cloudflare build`) and deploys with `npx wrangler deploy` into the Worker `jobpilot-demo`
+(the name must match `wrangler.jsonc`). Builds clone from GitHub, where there is no
 `.env`, so nothing secret can reach the bundle. The Worker's runtime secrets, `DEEPSEEK_API_KEY` and
 `DEMO_SECRET`, are set once in the dashboard (Settings → Variables and Secrets, Production) and survive
 every deploy. `npm run demo:deploy` is the manual route; its token needs **Account → Workers Scripts →
 Edit** (`CLOUDFLARE_DEPLOY_TOKEN` in `.env`). The nightly reset needs `CLOUDFLARE_ACCOUNT_ID` and
 `CLOUDFLARE_API_TOKEN` as repository secrets. Never run `opennextjs-cloudflare build` or `wrangler dev` in the project folder: both
 read `.env`, and the build embeds what it reads.
+
+### Quality gates
+
+Every stage of the pipeline has its own checks, and each one blocks what comes after it.
+
+| When | What runs | Where |
+| --- | --- | --- |
+| Every push and pull request | Typecheck, ESLint with the layer rules, workflow lint | `ci.yml` |
+| | 88 unit and integration tests on Node 22 and 24, with a coverage floor on the server code | `ci.yml`, `vitest.config.ts` |
+| | Browser tests on a production build of the demo: a read-only smoke suite and the HR journey (analyse, download the letter, track it, change its status, be refused a second run) | `ci.yml`, `e2e/` |
+| | The Worker builds, stays under its size budget (2.5 MiB of the free plan's 3 MiB), and the bundle holds no secret | `ci.yml`, `scripts/ci/worker-size.ts` |
+| | Production dependencies have no high or critical advisory; no secret anywhere in the git history | `ci.yml`, `.gitleaks.toml` |
+| | Static security analysis (CodeQL); new vulnerable dependencies on pull requests | `codeql.yml`, `ci.yml` |
+| Before a deploy | Typecheck, lint and unit tests run inside the Cloudflare build; a failure means no deploy | `npm run cf:build` |
+| After a deploy | Wait until `/api/health` reports the pushed commit, then run the smoke suite on the live site | `deploy-verify.yml` |
+| Every day | The smoke suite on the live site; the nightly reset, then a check that the demo holds exactly the seed | `deploy-verify.yml`, `demo-reset.yml` |
+
+The browser tests never touch real data: `e2e/global-setup.ts` refuses to start unless the target is in
+demo mode, and a local target must be on its own throwaway database with no model key. Tests that write
+(the journey) run only against the local build.

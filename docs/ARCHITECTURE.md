@@ -41,7 +41,7 @@ flowchart TB
 | **components** | `src/components` | React components. Client code, so it sees domain types only. | domain |
 | **cli** | `src/cli` | Terminal presentation: argument parsing, the live step printer, the trace file writer. `scripts/*.ts` are the thin entry points `npm run` calls. | domain, infra, data, agent, services |
 
-Outside `src/`: `scripts/` (entry points; `scripts/demo/` builds and ships the public demo), `tests/` (mirrors the layers), `db/migrations/` (schema), `demo/` (the demo's fictional inputs, seed and files), `data/` (local files, gitignored), `docs/`.
+Outside `src/`: `scripts/` (entry points; `scripts/demo/` builds and ships the public demo, `scripts/e2e/` serves the browser tests, `scripts/ci/` holds CI checks), `tests/` (mirrors the layers), `e2e/` (Playwright browser tests), `db/migrations/` (schema), `demo/` (the demo's fictional inputs, seed and files), `data/` (local files, gitignored), `docs/`.
 
 ## Where does a change go?
 
@@ -120,9 +120,43 @@ else that writes (deleting, uploading, editing fields) is refused with a "demo e
 | Building, resetting, running locally, deploying | `scripts/demo/build-data.ts`, `reset.ts`, `local.ts`, `deploy.ts` |
 
 **How it deploys.** Cloudflare Workers Builds watches this repository and deploys every push to `master`
-(build `npx opennextjs-cloudflare build`, deploy `npx wrangler deploy`). The live demo is
+(build `npm run cf:build`, deploy `npx wrangler deploy`). The live demo is
 <https://jobpilot-demo.fionasundev.workers.dev>. Runtime secrets (`DEEPSEEK_API_KEY`, `DEMO_SECRET`) live on
 the Worker, set in the dashboard.
+
+## The pipeline and its checks
+
+GitHub Actions and Cloudflare each see the same push. Checks at each stage stop the next one.
+
+```mermaid
+flowchart TD
+    push["git push"] --> ci["GitHub Actions: ci.yml<br/>typecheck, lint, unit tests (Node 22, 24),<br/>browser tests, Worker build + size + secrets,<br/>audit, history secret scan"]
+    push --> codeql["codeql.yml<br/>static security analysis"]
+    push --> wb["Cloudflare Workers Builds<br/>npm run cf:build"]
+    wb --> gate{"typecheck, lint,<br/>unit tests pass?"}
+    gate -- no --> stop["no deploy<br/>the live demo keeps the last version"]
+    gate -- yes --> deploy["wrangler deploy<br/>new version live"]
+    push --> verify["deploy-verify.yml<br/>wait for /api/health version = commit"]
+    deploy -.-> verify
+    verify --> smoke["smoke suite on the live demo<br/>(read-only)"]
+    smoke -- fails --> rollback["roll back in the Cloudflare dashboard"]
+```
+
+| Stage | Checks | Code |
+| --- | --- | --- |
+| Static | `tsc`, ESLint (layer rules), actionlint | `ci.yml` job `static` |
+| Unit and integration | 88 Vitest tests against in-memory SQLite: repositories, the demo limits, visitor identity, the whole agent run offline (`tests/services/analyse-offline.test.ts`), the demo seed's contract and privacy (`tests/data/demo-seed.test.ts`). Coverage floor on `src/{domain,data,services,agent,server}` | `tests/`, `vitest.config.ts` |
+| Browser | Playwright on a production build (`scripts/e2e/serve.ts`: a fresh seeded copy of the demo, no model key). `smoke`: read-only, also run against the live site. `journey`: the HR visitor's path, local only | `e2e/`, `playwright.config.ts` |
+| Worker | `opennextjs-cloudflare build`, size budget from `wrangler deploy --dry-run`, gitleaks over `.open-next` | `scripts/ci/worker-size.ts`, `.gitleaks.toml` |
+| Security | `npm audit --omit=dev --audit-level=high`, gitleaks over the whole history, CodeQL `security-extended`, dependency review on pull requests | `ci.yml`, `codeql.yml` |
+| Deploy gate | `npm run verify` inside the Cloudflare build | `package.json` `cf:build` |
+| After deploy | `/api/health` `version` (the commit, inlined by `next.config.ts` from `WORKERS_CI_COMMIT_SHA`) must equal the pushed commit, then the smoke suite with `EXPECT_VERSION` | `deploy-verify.yml`, `e2e/global-setup.ts` |
+| Daily | Smoke suite on the live site; after the nightly reset, `EXPECT_SEED=1` checks the demo holds exactly the seed | `deploy-verify.yml`, `demo-reset.yml` |
+
+**Safety of the browser tests.** `e2e/global-setup.ts` runs before any test and refuses a target that is
+not in demo mode. A local target must report the local database and storage drivers and no model key;
+a remote one must be the Worker on its D1 and R2 bindings. The smoke suite changes nothing: it runs no
+AI analysis, changes no status, and its refused writes use ids that do not exist.
 
 **Why the manual deploy builds in a clean room.** The Cloudflare adapter reads every `.env` file in the
 project at build time and embeds the values in the Worker, and Next.js copies `.env` into the server
@@ -139,4 +173,4 @@ repository uses it whenever its size matches the PDF.
 - Imports across folders use the `@/` alias (`@/domain`, `@/infra/db`); only siblings inside one folder use `./`.
 - `@/domain` is a barrel of types and constants. The zod schemas are imported explicitly from `@/domain/schemas`.
 - Field names follow the database: `s` string, `b` boolean, `i` integer, `f` float, `dt` datetime, `o` object, `a` array.
-- Tests live under `tests/<layer>/` and import through the same `@/` alias; `tests/helpers.ts` builds an in-memory database.
+- Tests live under `tests/<layer>/` and import through the same `@/` alias; `tests/helpers.ts` builds an in-memory database. Browser tests live under `e2e/smoke/` (read-only) and `e2e/journey/` (writes, local only).

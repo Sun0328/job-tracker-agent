@@ -1,23 +1,173 @@
 name: CI
 
+# Every push and pull request. The jobs run in parallel; "All checks passed" needs
+# all of them, so it is the one check to require before merging to master.
+#
+#   Typecheck and lint      tsc, ESLint (including the layer rules)
+#   Unit tests              Vitest on Node 22 and 24; coverage floor on 24
+#   Browser tests           Playwright on a production build of the demo, offline
+#   Worker build            the Cloudflare bundle builds, fits the size budget, holds no secret
+#   Security                dependency audit, secret scan of the whole git history
+#   Dependency review       pull requests only: no new vulnerable dependency
+
 on:
   push:
-    branches: [master]
+    branches: ["**"]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: 8.30.1
 
 jobs:
-  check:
+  static:
+    name: Typecheck and lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
       - run: npm ci
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
       - name: Lint (includes the layer rules)
-        run: npx eslint .
+        run: npm run lint
+      - name: Lint the workflows
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+  unit:
+    name: Unit tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json engines: >=22.14. 24 is what the Worker is built with.
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Tests, with the coverage floor
+        if: matrix.node == 24
+        run: npm run test:coverage
       - name: Tests
-        run: npx vitest run
+        if: matrix.node != 24
+        run: npm test
+      - name: Coverage summary
+        if: matrix.node == 24 && !cancelled()
+        run: |
+          node -e '
+            const t = require("./coverage/coverage-summary.json").total;
+            const row = ["statements", "branches", "functions", "lines"].map((k) => t[k].pct + "%");
+            console.log(["### Coverage (server side)", "", "| statements | branches | functions | lines |", "| --- | --- | --- | --- |", "| " + row.join(" | ") + " |"].join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: matrix.node == 24 && !cancelled()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # Builds the app, seeds a throwaway copy of the demo, runs the smoke and journey suites.
+      - name: Smoke and HR-journey suites
+        run: npm run e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  worker:
+    name: Worker build, size and secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      # The same build Workers Builds runs before it deploys. There is no .env in CI.
+      - name: Build the Worker
+        run: npx opennextjs-cloudflare build
+      - name: Size budget
+        run: node --import tsx scripts/ci/worker-size.ts
+      - name: No secret in the bundle
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks dir .open-next --config .gitleaks.toml --no-banner --redact
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      # Only what ships: devDependencies never reach the Worker.
+      - name: Dependency audit (production, high and critical)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan of the whole git history
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git . --config .gitleaks.toml --no-banner --redact
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+
+  all:
+    name: All checks passed
+    if: always()
+    needs: [static, unit, e2e, worker, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "A required job did not succeed: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "All checks passed."

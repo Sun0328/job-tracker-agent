@@ -1,0 +1,83 @@
+name: Deploy verification
+
+# Cloudflare Workers Builds deploys every push to master (it runs `npm run cf:build`,
+# which refuses to build when typecheck, lint or the unit tests fail). This workflow
+# then waits until the live demo reports the pushed commit on /api/health, and runs
+# the read-only smoke suite against it. Once a day it runs the smoke suite alone, as
+# a synthetic check that the demo is still up.
+#
+# If it fails after a deploy, roll back: Cloudflare dashboard → Workers & Pages →
+# jobpilot-demo → Deployments → the previous version → Rollback.
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "0 20 * * *" # 20:00 UTC, the morning in New Zealand
+  workflow_dispatch:
+
+concurrency:
+  # A newer push supersedes the commit an older run is waiting for.
+  group: deploy-verify-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DEMO_URL: https://jobpilot-demo.fionasundev.workers.dev
+
+jobs:
+  verify:
+    name: Live demo is healthy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Wait for this commit to go live
+        if: github.event_name == 'push'
+        run: |
+          for attempt in $(seq 1 60); do
+            live=$(curl -sf "$DEMO_URL/api/health" | jq -r '.version // ""' || true)
+            if [ "$live" = "$GITHUB_SHA" ]; then
+              echo "Live after about $((attempt * 15)) s."
+              exit 0
+            fi
+            echo "Live: ${live:-an unversioned build}. Waiting for $GITHUB_SHA."
+            sleep 15
+          done
+          echo "::error::$GITHUB_SHA did not go live within 15 minutes. Open the Workers Builds log in the Cloudflare dashboard: the build or its checks failed."
+          exit 1
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Smoke suite against the live demo
+        env:
+          BASE_URL: ${{ env.DEMO_URL }}
+          # After a push, global setup also checks the demo runs exactly this commit.
+          EXPECT_VERSION: ${{ github.event_name == 'push' && github.sha || '' }}
+        run: npm run e2e:smoke
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-live
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Live demo: ${{ job.status }}"
+            echo ""
+            echo "$DEMO_URL, $(curl -sf "$DEMO_URL/api/health" | jq -c '{version, driver, jobs: .database.jobs}' || echo 'health unreachable')"
+            if [ "${{ job.status }}" != "success" ]; then
+              echo ""
+              echo "To roll back: Cloudflare dashboard → Workers & Pages → jobpilot-demo → Deployments → previous version → Rollback."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

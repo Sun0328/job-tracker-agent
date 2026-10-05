@@ -1,0 +1,29 @@
+# Secret scanning (gitleaks), used by CI on the full git history and on the built Worker.
+# Run locally: gitleaks git . --config .gitleaks.toml   or   gitleaks dir .open-next --config .gitleaks.toml
+
+title = "JobPilot secret scan"
+
+[extend]
+useDefault = true
+
+# The model key this app actually holds. Not in gitleaks' default rules.
+[[rules]]
+id = "deepseek-api-key"
+description = "DeepSeek API key"
+regex = '''\bsk-[a-f0-9]{32}\b'''
+keywords = ["sk-"]
+
+# Next.js generates these keys afresh on every build (preview mode, server action
+# encryption), so they are random, not ours, and must be in the bundle. Allowed only
+# inside the build output, and only for the generic rule.
+[[allowlists]]
+description = "Keys Next.js generates per build"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "match"
+regexes = [
+  '''previewMode(Signing|Encryption)Key''',
+  '''encryptionKey''',
+  '''\.keyPath,''',
+]
+paths = ['''\.open-next[\\/]''']

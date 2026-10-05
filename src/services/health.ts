@@ -8,6 +8,8 @@ export interface Health {
   database: { ok: boolean; jobs?: number; runs?: number; error?: string };
   files: { driver: FileDriver; ok: boolean; error?: string };
   agent: { mode: "deepseek" | "demo"; model: string | null };
+  /** The commit this build was made from (set by next.config.ts), so a deploy can be checked. Null locally. */
+  version: string | null;
 }
 
 /** Cheap check that the database and storage are reachable and which models are wired up. */
@@ -36,5 +38,6 @@ export async function getHealth(): Promise<Health> {
     database,
     files: { driver: selectedFileDriver(), ...storage },
     agent: { mode: deepSeekConfigured() ? "deepseek" : "demo", model: deepSeekConfigured() ? deepSeekModel() : null },
+    version: process.env.BUILD_SHA || null,
   };
 }

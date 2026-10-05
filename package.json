@@ -9,6 +9,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "playwright test",
+    "e2e:smoke": "playwright test --project=smoke",
+    "e2e:serve": "node --import tsx --disable-warning=ExperimentalWarning scripts/e2e/serve.ts",
+    "verify": "npm run typecheck && npm run lint && npm test",
+    "cf:build": "npm run verify && opennextjs-cloudflare build",
     "d1:setup": "node --import tsx --disable-warning=ExperimentalWarning scripts/d1-setup.ts",
     "r2:setup": "node --import tsx --disable-warning=ExperimentalWarning scripts/r2-setup.ts",
     "db:migrate": "node --import tsx --disable-warning=ExperimentalWarning scripts/db-migrate.ts",
@@ -46,9 +52,11 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@opennextjs/cloudflare": "^1.20.8",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
+    "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.5.27",
     "tsx": "^4.19.2",
@@ -58,5 +66,10 @@
   },
   "engines": {
     "node": ">=22.14"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.28"
+    }
   }
 }

@@ -3,6 +3,23 @@
 What was found the hard way. Newest first. Each entry: what it looked like, the cause, and the fix
 or procedure.
 
+## Setting up the test pipeline (2026-10-05)
+
+- **The offline agent saves "Unknown company"** for the example advert: with no model key the
+  extractor's local parser reads the title ("AI Engineer (LLM Applications)") but not the company. The
+  journey spec checks the title. A real run (DeepSeek) gets "Northwind Insight".
+- **`npm audit --omit=dev` was red on day one:** Next 15.5 pins `postcss` 8.4.31 (high advisories, fixed
+  in 8.5.x; `npm audit fix` only offers Next 16). `overrides.next.postcss` in `package.json` lifts it to
+  `^8.5.28`. Drop the override once Next ships a newer pin.
+- **gitleaks flags Next's own keys in `.open-next`** (`previewModeSigningKey`, `previewModeEncryptionKey`,
+  the server-action `encryptionKey`, plus a `.keyPath,` false positive). They are generated per build.
+  `.gitleaks.toml` allows exactly those, only under `.open-next/`, only for the generic rule, and adds a
+  `deepseek-api-key` rule (`sk-` + 32 hex), which the default rules lack.
+- **Docker Desktop is usually not running here**, so run gitleaks and actionlint as downloaded binaries.
+- **Playwright 1.63 wants `chromium_headless_shell-1243`**: `npx playwright install chromium` once.
+- **The Worker measured 1,824 KiB gzipped** (`wrangler deploy --dry-run` in the clean room): 59% of the
+  free plan's 3 MiB. The CI budget is 2,560 KiB.
+
 ## Building the Cloudflare Worker leaked .env and broke `next dev` (2026-10-05)
 
 - **Looked like:** a local `wrangler dev` of the Worker reported `"driver":"d1"` with 9 jobs: it was
