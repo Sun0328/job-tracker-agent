@@ -6,14 +6,14 @@ is traced, streamed live and stored, so you can see what the model was asked, wh
 A dashboard follows each application through the hiring funnel.
 
 <!-- live-demo: filled in by npm run demo:deploy -->
-**Live demo:** coming soon. Until then, `npm run demo:local` runs the same demo on your machine.
+**[Live demo](https://jobpilot-demo.fionasundev.workers.dev)**: a fictional candidate and fictional companies, with one live AI run per visitor.
 <!-- /live-demo -->
 
 ![JobPilot demo: the agent analyses an example advert step by step, writes a cover letter, and the application moves through the dashboard pipeline](docs/media/demo.gif)
 
 ## Try it in three clicks
 
-1. Open the live demo (link above) and click **Use the example advert**.
+1. Open the [live demo](https://jobpilot-demo.fionasundev.workers.dev) and click **Use the example advert**.
 2. Click **Run the agent** and watch the steps arrive. Click any step to see why the agent decided what it
    did, the JSON the model sent back and each tool it called.
 3. Click **Download the PDF**, then **Track it on the dashboard** and change the application's status. The
@@ -168,10 +168,15 @@ The live demo is this code with `DEMO_MODE=1` on Cloudflare Workers, bound only 
 npm run demo:local     # the demo on http://localhost:3200, from the committed seed
 npm run demo:data      # rebuild demo/seed.sql and demo/bucket/ with real agent runs on the fictional adverts
 npm run demo:reset     # load the seed and files into the demo D1 and R2 (also runs nightly in GitHub Actions)
-npm run demo:deploy    # clean-room build, secret scan, deploy with the DeepSeek key as a Worker secret
+npm run demo:deploy    # manual deploy: clean-room build, secret scan, DeepSeek key as a Worker secret
 ```
 
-The deploy token needs **Account → Workers Scripts → Edit** (put it in `.env` as `CLOUDFLARE_DEPLOY_TOKEN`
-if you keep it separate). The nightly reset needs `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as
-repository secrets. Never run `opennextjs-cloudflare build` or `wrangler dev` in the project folder: both
+**Deploys are automatic.** Cloudflare Workers Builds is connected to this repository: every push to
+`master` builds with `npx opennextjs-cloudflare build` and deploys with `npx wrangler deploy` into the
+Worker `jobpilot-demo` (the name must match `wrangler.jsonc`). Builds clone from GitHub, where there is no
+`.env`, so nothing secret can reach the bundle. The Worker's runtime secrets, `DEEPSEEK_API_KEY` and
+`DEMO_SECRET`, are set once in the dashboard (Settings → Variables and Secrets, Production) and survive
+every deploy. `npm run demo:deploy` is the manual route; its token needs **Account → Workers Scripts →
+Edit** (`CLOUDFLARE_DEPLOY_TOKEN` in `.env`). The nightly reset needs `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` as repository secrets. Never run `opennextjs-cloudflare build` or `wrangler dev` in the project folder: both
 read `.env`, and the build embeds what it reads.

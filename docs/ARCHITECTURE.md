@@ -119,7 +119,12 @@ else that writes (deleting, uploading, editing fields) is refused with a "demo e
 | The fictional candidate | `demo/profile/`, read by the Worker from `profile/` in its bucket |
 | Building, resetting, running locally, deploying | `scripts/demo/build-data.ts`, `reset.ts`, `local.ts`, `deploy.ts` |
 
-**Why the deploy builds in a clean room.** The Cloudflare adapter reads every `.env` file in the
+**How it deploys.** Cloudflare Workers Builds watches this repository and deploys every push to `master`
+(build `npx opennextjs-cloudflare build`, deploy `npx wrangler deploy`). The live demo is
+<https://jobpilot-demo.fionasundev.workers.dev>. Runtime secrets (`DEEPSEEK_API_KEY`, `DEMO_SECRET`) live on
+the Worker, set in the dashboard.
+
+**Why the manual deploy builds in a clean room.** The Cloudflare adapter reads every `.env` file in the
 project at build time and embeds the values in the Worker, and Next.js copies `.env` into the server
 bundle. `npm run demo:deploy` therefore builds in `data/demo/build`, a copy of the tracked files only,
 then scans the output for every secret value in your `.env` and refuses to deploy if it finds one.

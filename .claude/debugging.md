@@ -20,7 +20,17 @@ or procedure.
   routes worked. Tell: the compiled `.next/server/app/page.js` references `app-page.runtime.prod.js`.
   `npm ci` restored it. The clean room now installs its own packages.
 
-## Demo deploy refused: "No access to the specified resource" (2026-10-05)
+## Dashboard: Source text ran into the Added column (fixed 2026-10-05)
+
+- **Looked like:** "Company Website" and "Trade Me Jobs" drawn over the Added dates (live demo, every width).
+- **Cause:** the table is `table-layout: fixed` and Source had 7% of the width with `white-space: nowrap`.
+- **Fix:** Source wraps like Location, widths rebalanced (Role 20%, Location 14%, Source 10%, Added 112px).
+  Check: for every `tbody td`, `scrollWidth <= clientWidth` at 1280/1440/1600/1920.
+
+## Demo deploy refused: "No access to the specified resource" (2026-10-05, resolved)
+
+- **Resolved by Workers Builds:** Cloudflare's Git integration deploys with its own token, so the D1/R2
+  token in `.env` never needs Workers permission. Only `npm run demo:deploy` still does.
 
 - The token in `.env` has D1 and R2 edit but no Workers permission, so `wrangler deploy` fails on
   `/workers/scripts/jobpilot-demo/...`. Fix: add **Account > Workers Scripts > Edit** to that token, or

@@ -32,6 +32,9 @@ The human-facing version of the architecture, with diagrams: `docs/ARCHITECTURE.
   then a scan for every `.env` value). An in-place build on 2026-10-05 also patched
   `node_modules/next` to always pick its production runtime, which broke `next dev` (`npm ci` fixed it).
 - **The public demo is DEMO_MODE=1 with its own D1 (`jobpilot-demo`) and R2 (`jobpilot-demo-files`).**
+  Live at https://jobpilot-demo.fionasundev.workers.dev. Cloudflare Workers Builds deploys every push to
+  `master` (build `npx opennextjs-cloudflare build`, deploy `npx wrangler deploy`), so pushing IS deploying.
+  Runtime secrets `DEEPSEEK_API_KEY` and `DEMO_SECRET` are set on the Worker in the dashboard.
   `wrangler.jsonc` is the demo; `wrangler.real.toml` is the private admin config for the real database.
   Demo data is fictional (Microsoft sample-company names, candidate Alex Rivera). Never put anything real
   in `demo/`.

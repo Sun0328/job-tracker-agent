@@ -341,7 +341,6 @@ a { color: inherit; }
   font-variant-numeric: tabular-nums;
 }
 
-.cell-nowrap { white-space: nowrap; }
 
 /* Below 860px the table becomes a list of cards: each row stacks, and every
    cell carries its column name from data-label. */

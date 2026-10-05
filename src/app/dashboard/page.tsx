@@ -229,11 +229,11 @@ export default function DashboardPage() {
             <table className="table">
               <colgroup>
                 <col style={{ width: 38 }} />
-                <col style={{ width: "22%" }} />
+                <col style={{ width: "20%" }} />
                 <col style={{ width: "15%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: 104 }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: 112 }} />
                 <col style={{ width: 150 }} />
                 <col style={{ width: 92 }} />
               </colgroup>
@@ -277,7 +277,8 @@ export default function DashboardPage() {
                       {job.bAgency ? <span className="cell-sub"> · agency</span> : null}
                     </td>
                     <td className="secondary" data-label="Location">{job.sLocation ?? "—"}</td>
-                    <td className="secondary cell-nowrap" data-label="Source">{job.sSource}</td>
+                    {/* Wraps like Location: "Company Website" in a fixed-width column must not run into "Added". */}
+                    <td className="secondary" data-label="Source">{job.sSource}</td>
                     <td className="secondary cell-date" data-label="Added" title={job.dtDateTime}>
                       {addedAt(job.dtDateTime).date}
                       <div className="cell-sub">{addedAt(job.dtDateTime).time}</div>
